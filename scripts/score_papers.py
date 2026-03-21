@@ -9,12 +9,16 @@
 import argparse
 import json
 import logging
+import os
 import re
 import sys
 from datetime import datetime
 from pathlib import Path
 
 import yaml
+
+# Zotero index for dedup
+ZOTERO_INDEX = os.path.expanduser("~/Zotero/zotero_index.json")
 
 logging.basicConfig(
     level=logging.INFO,
@@ -254,6 +258,9 @@ def score_papers(papers: list[dict], config: dict, enable_llm: bool = True) -> l
     else:
         logger.info("LLM scoring disabled")
 
+    # Zotero dedup: mark papers already in the library
+    scored = _mark_zotero_duplicates(scored)
+
     # Sort by score descending, then by title
     scored.sort(key=lambda p: (-p["score"], p["title"]))
     logger.info(
@@ -261,6 +268,67 @@ def score_papers(papers: list[dict], config: dict, enable_llm: bool = True) -> l
         f"Top score: {scored[0]['score'] if scored else 0}"
     )
     return scored
+
+
+def _mark_zotero_duplicates(papers: list[dict]) -> list[dict]:
+    """Mark papers that already exist in the local Zotero library."""
+    if not os.path.exists(ZOTERO_INDEX):
+        logger.info("Zotero index not found, skipping dedup")
+        for p in papers:
+            p["in_zotero"] = False
+            p["zotero_collections"] = []
+        return papers
+
+    try:
+        with open(ZOTERO_INDEX, "r", encoding="utf-8") as f:
+            zotero_papers = json.load(f)
+    except Exception as e:
+        logger.warning(f"Failed to load Zotero index: {e}")
+        for p in papers:
+            p["in_zotero"] = False
+            p["zotero_collections"] = []
+        return papers
+
+    # Build lookup sets
+    arxiv_ids = {}
+    dois = {}
+    titles = {}
+    for zp in zotero_papers:
+        if zp.get("arxiv_id"):
+            arxiv_ids[zp["arxiv_id"]] = zp
+        if zp.get("doi"):
+            dois[zp["doi"].lower()] = zp
+        if zp.get("title"):
+            titles[zp["title"].lower().strip()] = zp
+
+    dup_count = 0
+    for p in papers:
+        match = None
+        # Check arXiv ID
+        link = p.get("link", "")
+        arxiv_id = None
+        m = re.search(r"(\d{4}\.\d{4,5})", link)
+        if m:
+            arxiv_id = m.group(1)
+        if arxiv_id and arxiv_id in arxiv_ids:
+            match = arxiv_ids[arxiv_id]
+        # Check DOI
+        if not match and p.get("doi") and p["doi"].lower() in dois:
+            match = dois[p["doi"].lower()]
+        # Check title
+        if not match and p.get("title") and p["title"].lower().strip() in titles:
+            match = titles[p["title"].lower().strip()]
+
+        if match:
+            p["in_zotero"] = True
+            p["zotero_collections"] = match.get("collections", [])
+            dup_count += 1
+        else:
+            p["in_zotero"] = False
+            p["zotero_collections"] = []
+
+    logger.info(f"Zotero dedup: {dup_count}/{len(papers)} papers already in library")
+    return papers
 
 
 def _generate_comment(matched_keywords: list[str], templates: dict) -> str:

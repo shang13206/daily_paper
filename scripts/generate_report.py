@@ -82,6 +82,11 @@ def generate_report(scored_data: dict, config: dict) -> str:
             lines.append(f"- **Abstract:** {abstract}")
             if paper.get("ai_comment"):
                 lines.append(f"- **AI 点评:** {paper['ai_comment']}")
+            # Zotero badge
+            if paper.get("in_zotero"):
+                zot_cols = ", ".join(paper.get("zotero_collections", []))
+                zot_note = f" (Collections: {zot_cols})" if zot_cols else ""
+                lines.append(f"- 📚 **已在 Zotero 库中**{zot_note}")
             lines.append(
                 f"- \U0001f4c4 [arXiv]({paper['abs_url']}) "
                 f"| \U0001f4e5 [PDF]({paper['pdf_url']})"
@@ -108,8 +113,9 @@ def generate_report(scored_data: dict, config: dict) -> str:
             institutions = paper.get("matched_institutions", [])
             if institutions:
                 extra += f" ({', '.join(institutions[:2])})"
+            zot_badge = " 📚" if paper.get("in_zotero") else ""
             lines.append(
-                f"- **{paper['title']}** (Score: {paper['score']}){extra} "
+                f"- **{paper['title']}** (Score: {paper['score']}){extra}{zot_badge} "
                 f"[Link]({paper['abs_url']})"
             )
         lines.append("")
@@ -117,10 +123,12 @@ def generate_report(scored_data: dict, config: dict) -> str:
     # --- Statistics ---
     lines.append("## \U0001f4ca 今日统计")
     scoring_note = " (含 LLM 精筛)" if llm_used else ""
+    zotero_count = sum(1 for p in papers if p.get("in_zotero"))
+    zotero_note = f" | 已在 Zotero: {zotero_count} 篇" if zotero_count > 0 else ""
     lines.append(
         f"- 总抓取: {total_fetched} 篇 "
         f"| 通过初筛: {after_filter} 篇 "
-        f"| 精选: {len(top_papers)} 篇{scoring_note}"
+        f"| 精选: {len(top_papers)} 篇{scoring_note}{zotero_note}"
     )
     lines.append("")
 
