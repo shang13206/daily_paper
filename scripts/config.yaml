@@ -1,0 +1,278 @@
+# ===== arXiv Daily Paper Pipeline Configuration =====
+
+# arXiv categories to fetch
+arxiv:
+  categories:
+    - cs.RO
+    - cs.AI
+    - cs.LG
+    - cs.CV
+  # Max results per query (arXiv API limit)
+  max_results_per_category: 200
+  # Sleep between API requests (seconds) to respect rate limits
+  request_delay: 3.0
+  # Request timeout (seconds)
+  timeout: 30
+
+# --- Scoring Configuration ---
+scoring:
+  # First layer: keyword-based quick filter
+  # Papers matching ANY exclude keyword (in title+abstract) AND matching NONE of
+  # the include keywords will be discarded.
+  filter:
+    # If a paper matches these AND has no robotics relevance, discard it
+    exclude_keywords:
+      - large language model
+      - text generation
+      - machine translation
+      - natural language processing
+      - speech recognition
+      - image generation
+      - diffusion model for image
+      - video generation
+      - text-to-image
+      - text-to-video
+      - image super-resolution
+      - image inpainting
+      - face recognition
+      - face detection
+      - sentiment analysis
+      - question answering
+      - dialogue system
+      - medical imaging
+      - drug discovery
+      - protein folding
+      - genomics
+      - stock prediction
+      - financial
+      - recommendation system
+      - graph neural network
+      - federated learning
+      - differential privacy
+    # Papers with these keywords survive the filter regardless
+    include_keywords:
+      - robot
+      - robotic
+      - locomotion
+      - manipulation
+      - grasp
+      - embodied
+      - sim-to-real
+      - sim2real
+      - legged
+      - bipedal
+      - quadruped
+      - wheeled
+      - humanoid
+      - navigation
+      - planning for robot
+      - dexterous
+      - actuator
+      - control policy
+      - motor control
+      - terrain
+      - isaac
+      - mujoco
+      - pybullet
+      - gazebo
+
+  # Second layer: weighted keyword scoring
+  # Each matched keyword adds its weight to the paper's score
+  high_weight: 15
+  mid_weight: 8
+  low_weight: 4
+
+  keywords:
+    high:
+      - wheeled-legged
+      - wheel-legged
+      - wheeled legged
+      - wheel leg
+      - hybrid locomotion
+      - reinforcement learning locomotion
+      - rl locomotion
+      - rl for locomotion
+      - sim-to-real transfer
+      - sim2real transfer
+      - sim-to-real
+      - sim2real
+      - terrain adaptation
+      - terrain traversal
+      - rough terrain
+      - uneven terrain
+      - isaac lab
+      - isaaclab
+      - isaac gym
+      - mujoco locomotion
+      - locomotion policy
+      - locomotion control
+      - gait learning
+      - gait adaptation
+
+    mid:
+      - legged robot
+      - legged locomotion
+      - bipedal robot
+      - bipedal locomotion
+      - quadruped robot
+      - quadrupedal
+      - humanoid robot
+      - humanoid locomotion
+      - robot learning
+      - robot reinforcement learning
+      - navigation reinforcement learning
+      - rl navigation
+      - whole-body control
+      - model predictive control robot
+      - dynamic walking
+      - balance control
+      - contact-rich
+      - motion planning robot
+
+    low:
+      - manipulation
+      - grasping
+      - grasp
+      - dexterous manipulation
+      - visual language action
+      - vla
+      - robot foundation model
+      - embodied ai
+      - embodied agent
+      - tactile sensing
+      - force control
+      - compliant control
+      - mobile robot
+      - robot navigation
+      - path planning
+
+  # Bonus: extra points if paper is primarily in cs.RO
+  category_bonus:
+    cs.RO: 10
+
+  # Third layer: venue and institution bonus scoring
+  venue_bonus:
+    tier1: 20  # Top-tier robotics venues
+    tier2: 12  # Strong robotics/ML venues
+    tier3: 5   # Good venues (robotics-related content)
+  venue_keywords:
+    tier1:
+      - Science Robotics
+      - Transactions on Robotics
+      - TRO
+      - IJRR
+      - International Journal of Robotics Research
+      - "RSS "
+      - "Robotics: Science and Systems"
+      - CoRL
+      - Conference on Robot Learning
+    tier2:
+      - ICRA
+      - IROS
+      - RA-L
+      - Robotics and Automation Letters
+      - NeurIPS
+      - ICML
+      - ICLR
+      - CoRL workshop
+    tier3:
+      - ECCV
+      - CVPR
+      - AAAI
+      - IJCAI
+
+  institution_bonus:
+    tier1: 10
+    tier2: 5
+  institution_keywords:
+    tier1:
+      - ETH Zurich
+      - ETH Zürich
+      - Carnegie Mellon
+      - CMU
+      - UC Berkeley
+      - University of California, Berkeley
+      - MIT
+      - Massachusetts Institute of Technology
+      - Stanford
+      - Google DeepMind
+      - DeepMind
+      - NVIDIA
+      - Meta FAIR
+      - FAIR
+    tier2:
+      - Georgia Tech
+      - Georgia Institute of Technology
+      - UPenn
+      - University of Pennsylvania
+      - Princeton
+      - Tsinghua
+      - Peking University
+      - PKU
+      - Shanghai Jiao Tong
+      - SJTU
+      - Zhejiang University
+      - ZJU
+      - Oxford
+      - Cambridge
+      - Imperial College
+      - TUM
+      - Technical University of Munich
+      - KAIST
+      - University of Tokyo
+
+# --- LLM Scoring Configuration ---
+llm:
+  enable_llm_scoring: true
+  # Minimum rule-based score to trigger LLM scoring
+  llm_score_threshold: 10
+  # Number of papers per LLM batch
+  batch_size: 5
+  # Claude CLI command
+  claude_command: "claude"
+  # Extra CLI flags
+  claude_flags: "--permission-mode bypassPermissions --print"
+  # Model to use (passed via --model flag)
+  model: "sonnet"
+
+# --- Research Profile (used for LLM scoring) ---
+research_profile: |
+  四轮足/轮足机器人（wheeled-legged robot）强化学习运动控制与导航。
+  核心关注：locomotion policy learning, sim-to-real transfer, terrain adaptation。
+  使用 Isaac Lab 训练、MuJoCo Sim2Sim 验证。
+  目标期刊：IEEE RA-L。
+
+# --- Report Configuration ---
+report:
+  # Number of top papers to feature
+  top_n: 5
+  # Minimum score to appear in "watch list"
+  watch_threshold: 30
+  # Output directory (relative to repo root)
+  output_dir: literature/notes
+  # Intermediate data directory
+  data_dir: scripts/data
+
+# --- AI Comment Templates ---
+# Used to generate a one-line comment based on matched keywords
+comment_templates:
+  wheeled-legged: "directly relevant to wheeled-legged robot research"
+  wheel-legged: "directly relevant to wheeled-legged robot research"
+  sim2real: "relevant to sim-to-real transfer pipeline"
+  sim-to-real: "relevant to sim-to-real transfer pipeline"
+  terrain: "relevant to terrain adaptation and traversal"
+  isaac: "uses Isaac Lab/Gym simulation environment"
+  mujoco: "uses MuJoCo simulation environment"
+  locomotion: "relevant to locomotion control"
+  legged: "relevant to legged robot research"
+  bipedal: "relevant to bipedal locomotion"
+  quadruped: "relevant to quadruped robot research"
+  humanoid: "relevant to humanoid robot research"
+  reinforcement learning: "applies RL to robotics"
+  gait: "relevant to gait learning/adaptation"
+  manipulation: "relevant to robot manipulation (not core research direction)"
+  grasp: "relevant to robotic grasping (not core research direction)"
+  vla: "related to vision-language-action models"
+  embodied: "relevant to embodied AI"
+  navigation: "relevant to robot navigation"
+  whole-body: "relevant to whole-body control"
