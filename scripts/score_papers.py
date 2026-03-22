@@ -244,13 +244,9 @@ def score_papers(papers: list[dict], config: dict, enable_llm: bool = True) -> l
                         # Use LLM comment as ai_comment when available
                         scored[global_idx]["ai_comment"] = result["comment"]
                         # Blend: final score = 0.4 * rule + 0.6 * llm
-                        # LLM veto: if LLM score < 20, it means off-topic;
-                        # cap final score to 25 regardless of rule score.
                         rule_s = scored[global_idx]["score"]
                         llm_s = result["score"]
                         blended = int(0.4 * rule_s + 0.6 * llm_s)
-                        if llm_s < 20:
-                            blended = min(blended, 25)
                         scored[global_idx]["score"] = min(blended, 100)
 
                 logger.info(f"LLM scoring applied to {len(llm_results)} papers")

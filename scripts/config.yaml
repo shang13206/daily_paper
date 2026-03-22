@@ -152,9 +152,9 @@ scoring:
 
   # Third layer: venue and institution bonus scoring
   venue_bonus:
-    tier1: 20  # Top-tier robotics venues
-    tier2: 12  # Strong robotics/ML venues
-    tier3: 5   # Good venues (robotics-related content)
+    tier1: 35  # Top-tier robotics venues (Science Robotics, TRO, RSS, CoRL...)
+    tier2: 20  # Strong robotics/ML venues (ICRA, IROS, RA-L, NeurIPS, ICML...)
+    tier3: 10  # Good venues (CVPR, ECCV, AAAI...)
   venue_keywords:
     tier1:
       - Science Robotics
@@ -182,8 +182,8 @@ scoring:
       - IJCAI
 
   institution_bonus:
-    tier1: 10
-    tier2: 5
+    tier1: 15  # ETH, CMU, Berkeley, MIT, Stanford, DeepMind, NVIDIA...
+    tier2: 8   # 国内顶校、其他强校
   institution_keywords:
     tier1:
       - ETH Zurich
@@ -237,25 +237,19 @@ llm:
 
 # --- Research Profile (used for LLM scoring) ---
 research_profile: |
-  研究方向：强化学习（RL）运动控制与导航，机器人平台不限（轮足/四足/人形均可）。
-  核心关注：locomotion policy learning, sim-to-real transfer, terrain adaptation, RL-based navigation。
+  研究方向：机器人运动控制与导航（RL 为主，但不排斥 MPC、传统控制等方法）。
+  机器人平台不限：轮足、四足、人形、无人机均可。
+  核心关注：locomotion policy learning, sim-to-real transfer, terrain adaptation, navigation。
   使用 Isaac Lab 训练、MuJoCo Sim2Sim 验证。目标期刊：IEEE RA-L。
 
-  【高度相关，优先推荐】
-  - RL/DRL 驱动的运动控制（locomotion、gait learning、agile motion）
-  - Sim-to-real transfer、domain randomization、adaptation
-  - 地形适应、复杂地形穿越（rough terrain、parkour、stair climbing）
-  - RL 导航（navigation policy、local planning、obstacle avoidance via RL）
-  - Teacher-student distillation、privileged learning 用于运动控制
-  - Whole-body control（若涉及 RL）
+  【评分重点】
+  - 首要看发表质量：Science Robotics、TRO、IJRR、RSS、CoRL 的论文，只要与机器人运动/导航/控制相关，都应给高分
+  - 其次看技术深度：方法有创新、实验充分（尤其有实机验证）的给高分
+  - 好文章都有可借鉴之处：即使是纯 MPC、纯感知、无人机，若发在顶级期刊/会议，也值得推荐
 
-  【不感兴趣，应给低分】
-  - 纯 MPC / 传统控制方法（无 RL 组件）
-  - 纯操作、抓取、灵巧手
-  - 无人机、空中机器人
-  - 纯感知论文（无运动控制或导航策略）
-  - VLA / 语言模型驱动的操作任务
-  - 多机器人编队（除非涉及个体 RL 运动策略）
+  【低分情形（真正不相关）】
+  - 与机器人运动、控制、导航完全无关的论文（如纯 NLP、纯图像生成、医疗、金融）
+  - 操作/抓取任务（除非涉及全身控制或移动操作）
 
 # --- Report Configuration ---
 report:
