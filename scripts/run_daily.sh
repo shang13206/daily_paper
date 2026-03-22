@@ -26,9 +26,19 @@ for arg in "$@"; do
     esac
 done
 
-# Default to yesterday if no date provided
+# Default to the last arXiv working day if no date provided.
+# arXiv does not publish on weekends: if today is Monday, use Friday;
+# if today is Sunday, use Friday; if today is Saturday, use Friday.
+# For all other days, use yesterday.
 if [ -z "$TARGET_DATE" ]; then
-    TARGET_DATE=$(date -u -d "yesterday" +%Y-%m-%d 2>/dev/null || date -u -v-1d +%Y-%m-%d)
+    TODAY_DOW=$(date +%u)   # 1=Mon ... 7=Sun (ISO weekday)
+    case "$TODAY_DOW" in
+        1) DAYS_BACK=3 ;;   # Monday   -> Friday (3 days back)
+        7) DAYS_BACK=2 ;;   # Sunday   -> Friday (2 days back)
+        6) DAYS_BACK=1 ;;   # Saturday -> Friday (1 day back)
+        *) DAYS_BACK=1 ;;   # Tue-Fri  -> yesterday
+    esac
+    TARGET_DATE=$(date -d "$DAYS_BACK days ago" +%Y-%m-%d 2>/dev/null || date -v-${DAYS_BACK}d +%Y-%m-%d)
 fi
 
 echo "========================================" >&2

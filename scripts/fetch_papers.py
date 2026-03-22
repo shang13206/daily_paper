@@ -99,16 +99,18 @@ def fetch_arxiv_papers(
                 if paper is None:
                     continue
 
-                pub_date = paper["published_date"][:10]
+                # Use updated_date (announcement date) for filtering, not published_date.
+                # arXiv sorts by submittedDate (≈ updated), so this is consistent.
+                ann_date = paper.get("updated_date", paper["published_date"])[:10]
                 try:
-                    pub_dt = datetime.strptime(pub_date, "%Y-%m-%d")
+                    ann_dt = datetime.strptime(ann_date, "%Y-%m-%d")
                 except ValueError:
                     continue
 
-                if pub_dt > target:
-                    # Paper is newer than target, skip but keep going
+                if ann_dt > target:
+                    # Paper announced after target date, skip but keep going
                     continue
-                elif pub_dt == target:
+                elif ann_dt == target:
                     found_target_date = True
                     arxiv_id = paper["arxiv_id"]
                     if arxiv_id in all_papers:
@@ -119,7 +121,7 @@ def fetch_arxiv_papers(
                         all_papers[arxiv_id] = paper
                         count += 1
                 else:
-                    # Paper is older than target, we've passed the date
+                    # Paper announced before target date, we've passed it
                     passed_target_date = True
                     break
 
@@ -136,7 +138,8 @@ def fetch_arxiv_papers(
         time.sleep(delay)
 
     papers = list(all_papers.values())
-    papers.sort(key=lambda p: p["published_date"], reverse=True)
+    # Sort by announcement date (updated_date), most recent first
+    papers.sort(key=lambda p: p.get("updated_date", p["published_date"]), reverse=True)
     logger.info(f"Total unique papers fetched: {len(papers)}")
     return papers
 
@@ -148,6 +151,10 @@ def _parse_entry(entry: ET.Element) -> dict | None:
         if title_el is None or title_el.text is None:
             return None
         title = " ".join(title_el.text.strip().split())
+
+        # NOTE: Use 'updated' (announcement date) not 'published' (submission date).
+        # A paper submitted on Monday may be announced on Wednesday; we want the
+        # announcement date so that filtering by target date works correctly.
 
         abstract_el = entry.find(f"{ATOM_NS}summary")
         abstract = ""
@@ -192,11 +199,19 @@ def _parse_entry(entry: ET.Element) -> dict | None:
             if term and term not in categories:
                 categories.append(term)
 
-        # Published date
+        # Published date (original submission date)
         pub_el = entry.find(f"{ATOM_NS}published")
         published_date = ""
         if pub_el is not None and pub_el.text:
             published_date = pub_el.text.strip()
+
+        # Updated date (arXiv announcement / last-modified date).
+        # This is the date arXiv made the paper publicly visible, which is what
+        # we want to filter by (not the submission date).
+        upd_el = entry.find(f"{ATOM_NS}updated")
+        updated_date = published_date  # fallback to published if missing
+        if upd_el is not None and upd_el.text:
+            updated_date = upd_el.text.strip()
 
         # Links
         pdf_url = ""
@@ -215,7 +230,8 @@ def _parse_entry(entry: ET.Element) -> dict | None:
             "affiliations": affiliations,
             "comment": comment,
             "categories": categories,
-            "published_date": published_date,
+            "published_date": published_date,  # original submission date
+            "updated_date": updated_date,       # arXiv announcement date (used for filtering)
             "abs_url": abs_url,
             "pdf_url": pdf_url,
         }
