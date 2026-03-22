@@ -237,10 +237,25 @@ llm:
 
 # --- Research Profile (used for LLM scoring) ---
 research_profile: |
-  四轮足/轮足机器人（wheeled-legged robot）强化学习运动控制与导航。
-  核心关注：locomotion policy learning, sim-to-real transfer, terrain adaptation。
-  使用 Isaac Lab 训练、MuJoCo Sim2Sim 验证。
-  目标期刊：IEEE RA-L。
+  研究方向：强化学习（RL）运动控制与导航，机器人平台不限（轮足/四足/人形均可）。
+  核心关注：locomotion policy learning, sim-to-real transfer, terrain adaptation, RL-based navigation。
+  使用 Isaac Lab 训练、MuJoCo Sim2Sim 验证。目标期刊：IEEE RA-L。
+
+  【高度相关，优先推荐】
+  - RL/DRL 驱动的运动控制（locomotion、gait learning、agile motion）
+  - Sim-to-real transfer、domain randomization、adaptation
+  - 地形适应、复杂地形穿越（rough terrain、parkour、stair climbing）
+  - RL 导航（navigation policy、local planning、obstacle avoidance via RL）
+  - Teacher-student distillation、privileged learning 用于运动控制
+  - Whole-body control（若涉及 RL）
+
+  【不感兴趣，应给低分】
+  - 纯 MPC / 传统控制方法（无 RL 组件）
+  - 纯操作、抓取、灵巧手
+  - 无人机、空中机器人
+  - 纯感知论文（无运动控制或导航策略）
+  - VLA / 语言模型驱动的操作任务
+  - 多机器人编队（除非涉及个体 RL 运动策略）
 
 # --- Report Configuration ---
 report:
