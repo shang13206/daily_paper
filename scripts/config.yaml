@@ -285,3 +285,10 @@ comment_templates:
   embodied: "relevant to embodied AI"
   navigation: "relevant to robot navigation"
   whole-body: "relevant to whole-body control"
+
+# ===== Zotero Integration =====
+zotero:
+  user_id: 15343773
+  api_key_env: ZOTERO_API_KEY   # export ZOTERO_API_KEY=xxx
+  storage_dir: "~/OneDrive/Zotero/storage"
+  use_web_api: true
