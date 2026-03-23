@@ -1,0 +1,112 @@
+<html>
+<head><meta charset="utf-8"></head>
+<body>
+<h1>🤖 OpenClaw 深度精读笔记: ContractionPPO</h1>
+<p><strong>日期:</strong> 2026-03-23</p>
+<p><strong>arXiv:</strong> <a href="https://arxiv.org/abs/2603.19632">2603.19632</a></p>
+<p><strong>Collection:</strong> Quadruped</p>
+<hr>
+
+<h2>🔍 WHY：为什么要写这篇论文？(痛点)</h2>
+<ol>
+  <li><strong>RL 策略缺乏形式化稳定性保证：</strong>标准 PPO 等 RL 方法可以学到高性能运动策略，但无法提供闭环系统的稳定性证书（certificate），在受到外部扰动时行为不可预测。</li>
+  <li><strong>经典控制方法依赖人工参考轨迹：</strong>Lyapunov/contraction 方法需要精心设计参考轨迹，但对高维、富接触的四足系统（如 Unitree Go1）而言，设计此类轨迹极为困难。</li>
+  <li><strong>Sim-to-Real 鸿沟：</strong>即使在仿真中训练出鲁棒策略，如何保证该策略在真实硬件上的收敛性仍然是开放问题。现有方法（如 RMA、TumblerNet）依赖经验鲁棒性而非形式化保证。</li>
+  <li><strong>Privileged information 的浪费：</strong>训练时可获取完整状态和动力学信息，但现有 RL 框架未充分利用这些信息来提供部署时的安全保证。</li>
+</ol>
+
+<h2>💡 WHAT：它提出了什么？(本质)</h2>
+<p><strong>ContractionPPO</strong> = PPO + 可微分收缩度量层（differentiable contraction metric layer）。核心思想：</p>
+<ul>
+  <li>在 PPO 训练过程中<strong>联合学习</strong>一个状态相关的收缩度量 M<sub>φ</sub>(x)，该度量利用训练时的 <strong>privileged information</strong>（完整状态 x、系统动力学）来证明闭环系统具有<strong>增量指数稳定性（IES）</strong>。</li>
+  <li><strong>部署时仅使用 PPO 策略</strong>，收缩度量不参与实时推理——它充当训练阶段的"稳定性正则化器"。</li>
+  <li>通过 Lipschitz 约束，导出<strong>sim-to-real 泛化上界</strong>：只要仿真中的收缩余量足够大，该证书在真实部署中依然有效。</li>
+</ul>
+<p><em>本质上，这是第一个将 contraction analysis 以端到端可微分方式嵌入 model-free RL 训练、并给出 sim-to-real 稳定性保证的框架。</em></p>
+
+<h2>🛠️ HOW：它是如何实现的？(机理)</h2>
+
+<h3>网络结构</h3>
+<table border="1" cellpadding="5" cellspacing="0">
+  <tr><th>组件</th><th>架构</th><th>说明</th></tr>
+  <tr><td>PPO Actor/Critic</td><td>MLP (512, 256, 128), ELU</td><td>输出期望关节位姿 q<sub>d</sub><sup>ppo</sup> = q<sub>d</sub> + Δq<sub>θ</sub>(y)</td></tr>
+  <tr><td>收缩度量 M<sub>φ</sub></td><td>MLP (128, 64)</td><td>输出下三角矩阵 Θ(x)，M<sub>φ</sub> = Θ<sup>T</sup>Θ 保证正定性</td></tr>
+  <tr><td>Lipschitz 约束</td><td>谱归一化（Spectral Normalization）</td><td>策略和度量网络均施加，保证 ‖J<sub>π</sub>‖ ≤ L<sub>π</sub>，‖∇M<sub>φ</sub>‖<sub>F</sub> ≤ L<sub>M</sub></td></tr>
+</table>
+
+<h3>损失函数设计</h3>
+<p><strong>L<sub>total</sub>(θ, φ) = L<sub>PPO</sub>(θ) + w<sub>contr</sub> · L<sub>contr</sub>(φ) + w<sub>PD</sub> · L<sub>PD</sub>(φ)</strong></p>
+<ul>
+  <li><strong>L<sub>PPO</sub></strong>：标准 PPO clipped surrogate + value loss + entropy bonus。</li>
+  <li><strong>L<sub>contr</sub></strong>（收缩 hinge loss）：ReLU( (V̇<sub>φ</sub> + α·V<sub>φ</sub>) / V<sub>φ</sub> + ε<sub>α</sub> )，惩罚违反收缩条件 V̇ + αV ≤ -ε<sub>α</sub> 的状态。</li>
+  <li><strong>L<sub>PD</sub></strong>（特征值条件数 loss）：ReLU(m<sub>min</sub> - λ<sub>min</sub>(M<sub>φ</sub>)) + ReLU(λ<sub>max</sub>(M<sub>φ</sub>) - m<sub>max</sub>)，确保度量矩阵良态。</li>
+</ul>
+<p>权重 w<sub>contr</sub> = 0.01，较小以避免干扰 PPO 的任务优化。</p>
+
+<h3>收缩分析的关键数学</h3>
+<ul>
+  <li><strong>微分 Lyapunov 函数：</strong>V(δx, x) = δx<sup>T</sup> M(x) δx</li>
+  <li><strong>收缩条件：</strong>A<sub>cl</sub><sup>T</sup>M + MA<sub>cl</sub> + Ṁ + αM ≤ 0（A<sub>cl</sub> 为闭环 Jacobian，通过 autograd 计算）</li>
+  <li><strong>鲁棒性界：</strong>有界扰动 ‖d‖ ≤ d̄ 下，跟踪误差上界 ‖e(t)‖ ≤ √(V(0)/m<sub>min</sub>) · e<sup>-αt</sup> + (d̄/α)·√χ·(1-e<sup>-αt</sup>)，其中 χ = m<sub>max</sub>/m<sub>min</sub>。</li>
+</ul>
+
+<h3>Sim-to-Real 泛化定理（核心理论贡献）</h3>
+<p><strong>Theorem 1：</strong>在 Lipschitz 假设下，收缩残差上界 = C<sub>f</sub> + C<sub>B,dB</sub> + C<sub>B,J</sub>·L<sub>π</sub>·J̄<sub>h</sub> + (L<sub>M</sub>/√m<sub>min</sub>)·(f̄ + B̄·ū) - α。<br>
+若此值为负，则闭环系统在紧集 K 上为 IES。<br>
+<em>含义：</em>仿真中的收缩余量 ε<sub>α</sub> 若足够大，可以"吸收" sim-to-real 间的建模误差。</p>
+
+<h3>训练设置</h3>
+<table border="1" cellpadding="5" cellspacing="0">
+  <tr><td>框架</td><td>IsaacLab + RSL-RL</td></tr>
+  <tr><td>并行环境</td><td>4,096</td></tr>
+  <tr><td>PPO epochs/update</td><td>5</td></tr>
+  <tr><td>Rollout 长度</td><td>24 steps</td></tr>
+  <tr><td>学习率</td><td>1e-3 (Adam)</td></tr>
+  <tr><td>最大迭代</td><td>15,000</td></tr>
+  <tr><td>PD 控制频率</td><td>200 Hz</td></tr>
+  <tr><td>PD 增益 K<sub>p</sub>, K<sub>d</sub></td><td>30, 0.8</td></tr>
+  <tr><td>训练时间</td><td>~2 小时 (RTX 3080)</td></tr>
+</table>
+
+<h2>📈 IMPACT：实验证明了什么？(价值)</h2>
+
+<h3>任务：四足倒立（handstand on moving platform）</h3>
+<table border="1" cellpadding="5" cellspacing="0">
+  <tr><th>方法</th><th>10 CP</th><th>20 CP</th><th>30 CP</th><th>40 CP</th><th>50 CP</th><th>综合失败率</th></tr>
+  <tr style="background:#d4edda;"><td><strong>ContractionPPO</strong></td><td>0.00</td><td>0.00</td><td>0.00</td><td>0.00</td><td>0.00</td><td><strong>0.00</strong></td></tr>
+  <tr><td>RMA</td><td>0.23</td><td>0.23</td><td>0.19</td><td>0.19</td><td>0.16</td><td>0.20</td></tr>
+  <tr><td>PPO</td><td>0.98</td><td>0.98</td><td>0.98</td><td>0.99</td><td>0.99</td><td>0.99</td></tr>
+  <tr><td>TumblerNet</td><td>1.00</td><td>1.00</td><td>1.00</td><td>1.00</td><td>1.00</td><td>1.00</td></tr>
+  <tr><td>M<sub>φ</sub> = I (消融)</td><td>1.00</td><td>1.00</td><td>1.00</td><td>1.00</td><td>1.00</td><td>1.00</td></tr>
+</table>
+<ul>
+  <li><strong>0% 失败率</strong> vs 所有 baseline（PPO 99%、RMA 20%、TumblerNet 100%）。</li>
+  <li><strong>抗风扰动（未见过的域外干扰）：</strong>在 4.8–9.6 m/s 风速下，ContractionPPO 轨迹始终保持在 0.8m 圆内，瞬态偏离后快速收敛。</li>
+  <li><strong>泛化到人形机器人：</strong>在 Booster T1 人形上也验证了可行性。</li>
+  <li><strong>消融实验关键结论：</strong>固定度量 M<sub>φ</sub> = I 时完全失败（100%），证明学习的状态相关度量至关重要。</li>
+  <li><strong>硬件验证：</strong>Caltech CAST Arena，OptiTrack 动捕系统，强外部推力扰动下成功保持稳定。</li>
+</ul>
+
+<h2>⚠️ CRITICAL：局限与挑战 (反思)</h2>
+<ol>
+  <li><strong>形式保证仅在紧集 K 上成立：</strong>若闭环轨迹在部署时离开训练覆盖的状态集合 K，证书失效。虽然可以扩大 K，但需要更多训练样本。</li>
+  <li><strong>A<sub>cl</sub> 和 Ṁ 的近似误差：</strong>若 Jacobian 计算不精确，误差会以有界残差形式减小认证余量（α 变小），但不会完全失效。</li>
+  <li><strong>任务场景有限：</strong>目前仅在 handstand（准静态平衡）任务上验证，未覆盖快速运动（跑、跳）等更高维度的控制场景。</li>
+  <li><strong>Reward 设计未公开细节：</strong>论文仅提到"保持初始位置附近"，具体 reward shaping 不透明，复现可能需要试错。</li>
+  <li><strong>收缩度量的训练开销：</strong>需要通过 autograd 计算完整 Jacobian A<sub>cl</sub>，在高维系统中可能显著增加计算负担。</li>
+  <li><strong>α 的选择 trade-off：</strong>更大的 α（更快收敛）需要更大的 ε<sub>α</sub>（更难优化），实际调参需要平衡。</li>
+</ol>
+
+<h2>💎 与 OmniBot/RAL 的关联</h2>
+<ol>
+  <li><strong>Privileged Information 范式的复用：</strong>ContractionPPO 展示了如何利用训练时可获取、部署时不可用的 privileged info（完整状态+动力学）来获得额外保证。轮足机器人同样可以在仿真中获取精确的地形/接触信息作为 privileged input，用于训练收缩度量或其他安全正则化器。</li>
+  <li><strong>Lipschitz 网络 + Sim-to-Real 泛化界：</strong>对 policy 和 metric 施加谱归一化以获得 Lipschitz 上界，进而推导 sim-to-real 泛化保证——这一范式可以直接应用于轮足 RL 策略的 sim-to-real 传输分析。</li>
+  <li><strong>收缩 loss 作为辅助训练目标：</strong>w<sub>contr</sub> = 0.01 的小权重即可显著改善鲁棒性（0% vs 99% 失败率），提示在轮足 RL 训练中加入轻量级的稳定性辅助 loss 可能收益很大。</li>
+  <li><strong>低频 PD + RL 残差结构：</strong>q<sub>d</sub><sup>ppo</sup> = q<sub>d</sub> + Δq<sub>θ</sub>(y) 的残差策略结构、以及 200 Hz PD 控制器的使用，与轮足机器人的 RL 策略架构高度兼容。</li>
+  <li><strong>RAL 论文投稿参考：</strong>本文已被 RA-L 接收，其"RL + 形式化安全/稳定性保证"的叙事框架对提升 RAL 论文竞争力有直接借鉴价值。</li>
+</ol>
+
+<hr>
+<p>📥 <i>Note generated by OpenClaw Agent.</i></p>
+</body>
+</html>

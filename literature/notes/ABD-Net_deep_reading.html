@@ -1,0 +1,123 @@
+<html>
+<head><meta charset="utf-8"></head>
+<body>
+<h1>🤖 OpenClaw 深度精读笔记: Articulated-Body Dynamics Network</h1>
+<p><strong>日期:</strong> 2026-03-23</p>
+<p><strong>arXiv:</strong> <a href="https://arxiv.org/abs/2603.19078">2603.19078</a></p>
+<p><strong>Collection:</strong> Humanoid</p>
+<hr>
+
+<h2>🔍 WHY：为什么要写这篇论文？(痛点)</h2>
+<p>现有 RL 策略网络在引入机器人结构先验时，仅利用了<strong>连杆拓扑（link connectivity）</strong>进行消息传递，而<strong>动力学传播特性（inertia propagation）</strong>——即力与运动如何沿关节树级联传递——这一物理本质被完全忽视。</p>
+<ul>
+  <li><strong>GNN 方法的不足：</strong>虽指定了信息交换的空间路径，但特征聚合的语义完全由数据驱动学习，缺乏物理约束，导致样本效率低、对动力学参数变化（如质量偏移）泛化差。</li>
+  <li><strong>Transformer 方法的代价：</strong>全注意力机制参数量大，且无法显式编码树形层级结构，在关节自由度较多的人形机器人上尤为低效。</li>
+  <li><strong>核心问题：</strong>Articulated Body Algorithm (ABA) 是刚体正向动力学的标准计算流程，其惯性从叶到根聚合的计算结构天然适合作为策略网络的归纳偏置，但从未被系统性地嵌入到策略学习中。</li>
+</ul>
+
+<h2>💡 WHAT：它提出了什么？(本质)</h2>
+<p><strong>ABD-Net (Articulated-Body Dynamics Network)</strong>：一种以 ABA 正向动力学计算结构为蓝本的图神经网络策略架构。</p>
+<p>核心思想：<strong>用可学习参数替换 ABA 中的物理量</strong>，保留其从子连杆到父连杆的惯性聚合机制，使策略网络天然捕捉"动作如何通过身体传播"的动力学语义。</p>
+<ul>
+  <li>每个连杆 <em>i</em> 拥有可学习参数：<code>B_i ∈ ℝ^d</code>（类比刚体惯性）和 <code>W_i ∈ ℝ^{d×d}</code>（类比运动子空间）</li>
+  <li>信息传递严格遵循叶→根的树遍历顺序，模拟惯性向根部累积的物理过程</li>
+  <li>总参数量仅 ~91–95K，与 MLP/GNN 基线持平</li>
+</ul>
+
+<h2>🛠️ HOW：它是如何实现的？(机理)</h2>
+
+<h3>网络结构：三模块流水线 π_θ = Ψ ∘ M ∘ Φ</h3>
+<ol>
+  <li><strong>观测编码器 Φ：</strong>逐连杆投影 {φ_i}，将状态 s 映射为连杆嵌入 {z_i} ∈ ℝ^{K×d}</li>
+  <li><strong>动力学消息传递 M（核心）：</strong>
+    <ul>
+      <li><strong>子连杆贡献：</strong><code>v_j^a = v_j − v_j · (W_j W_j^T v_j)</code>——学习到的投影近似 ABA 的约束消除，识别传播中应衰减的特征方向</li>
+      <li><strong>连杆表征聚合：</strong><code>v_i = softplus(z_i + B_i) + Σ_{j∈ch(i)} v_j^a</code>——softplus 保证正性，反映惯性的正定约束</li>
+      <li>严格按<strong>叶→根</strong>顺序遍历（非并行，是设计选择）</li>
+    </ul>
+  </li>
+  <li><strong>动作解码器 Ψ：</strong>逐关节头 {ψ_j}，关节 j 的动作使用其父连杆表征 <code>a_j = ψ_j(v_{pa(j)})</code></li>
+</ol>
+
+<h3>正交性约束（关键 Trick）</h3>
+<p><code>L_orth = (1/K) Σ_i ‖W_i^T diag(v_i) W_i − I‖²_F</code></p>
+<p>正则化确保 <code>(W^T diag(v) W)^{-1} ≈ I</code>，防止数值不稳定的同时允许任务自适应。<strong>消融实验证明此约束对动力学泛化至关重要</strong>（Humanoid 质量泛化：91.1% → 59.8%）。</p>
+
+<h3>训练设置</h3>
+<ul>
+  <li><strong>RL 算法：</strong>PPO，总损失 = PPO 目标 + 正交约束</li>
+  <li><strong>仿真平台：</strong>Genesis（G1/Go1/Go2/T1）+ SAPIEN（Humanoid/Hopper），控制 50 Hz，仿真 200 Hz</li>
+  <li><strong>观测空间：</strong>关节位置/速度、IMU 角速度、投影重力、速度指令、前序动作、基座线速度；G1/T1 额外使用步态相位编码和足端位置</li>
+  <li><strong>Reward 设计（Genesis）：</strong>
+    <ul>
+      <li>线速度跟踪：权重 1.0–1.5</li>
+      <li>基座高度正则化：权重 10.0–50.0（关键稳定项）</li>
+      <li>动作变化率惩罚：0.005–0.1</li>
+      <li>力矩惩罚：1e-5</li>
+      <li>关节位置限位惩罚：5.0</li>
+    </ul>
+  </li>
+</ul>
+
+<h3>Sim-to-Real 转移</h3>
+<ul>
+  <li><strong>硬件：</strong>Unitree G1（人形）+ Go2（四足），NVIDIA Jetson Orin NX 板载计算</li>
+  <li><strong>推理延迟：</strong>&lt;5 ms（G1），远低于 20 ms 控制周期预算</li>
+  <li><strong>域随机化：</strong>足底摩擦、编码器偏置、质心偏移、外力扰动</li>
+  <li><strong>输出：</strong>期望关节位置（相对默认站姿的偏移），PD 控制器 200 Hz 执行</li>
+</ul>
+
+<h2>📈 IMPACT：实验证明了什么？(价值)</h2>
+
+<h3>1. 样本效率与最终性能</h3>
+<table border="1" cellpadding="5" cellspacing="0" style="border-collapse:collapse;">
+  <tr><th>方法</th><th>Genesis IQM</th><th>SAPIEN IQM</th></tr>
+  <tr style="background:#e6ffe6;"><td><strong>ABD-Net</strong></td><td><strong>0.85</strong></td><td><strong>0.97</strong></td></tr>
+  <tr><td>SWAT</td><td>0.79</td><td>0.71</td></tr>
+  <tr><td>GNN</td><td>0.76</td><td>0.73</td></tr>
+  <tr><td>BoT</td><td>0.69</td><td>0.66</td></tr>
+  <tr><td>MLP</td><td>0.34</td><td>0.56</td></tr>
+</table>
+<p>ABD-Net 在 Genesis 上超越最强基线 SWAT <strong>7.6%</strong>，在 SAPIEN 上超越 <strong>36.6%</strong>。</p>
+
+<h3>2. 动力学泛化（质量偏移下的性能保持率）</h3>
+<table border="1" cellpadding="5" cellspacing="0" style="border-collapse:collapse;">
+  <tr><th>方法</th><th>Humanoid</th><th>Hopper</th><th>Go2</th><th>T1</th></tr>
+  <tr style="background:#e6ffe6;"><td><strong>ABD-Net</strong></td><td><strong>91.1±1.4%</strong></td><td><strong>62.4±0.5%</strong></td><td>82.4±2.1%</td><td><strong>81.1±3.5%</strong></td></tr>
+  <tr><td>SWAT</td><td>88.9±2.0%</td><td>29.7±1.0%</td><td>81.4±2.2%</td><td>53.4±1.6%</td></tr>
+  <tr><td>GNN</td><td>54.9±0.8%</td><td>N/C</td><td>82.9±2.2%</td><td>69.9±2.4%</td></tr>
+</table>
+<p>平均泛化提升 <strong>23.9%</strong>。正交约束是泛化的关键（消融后 Humanoid 从 91.1% 降至 59.8%）。</p>
+
+<h3>3. 动力学建模能力</h3>
+<p>单步验证损失比 MLP 低 <strong>10×</strong>，5 步滚动预测中优势持续。</p>
+
+<h3>4. 学习到的表征</h3>
+<p>Go2 小跑步态中，对角腿对（FL-RR, FR-RL）的连杆表征特征范数呈同步振荡，证明网络自主学到了对角步态耦合模式。</p>
+
+<h3>5. 实机验证</h3>
+<p>Go2 在沥青、泥地、草地、室内瓷砖上稳定行走；G1 完成前进/侧向行走及动态舞蹈序列跟踪。</p>
+
+<h2>⚠️ CRITICAL：局限与挑战 (反思)</h2>
+<ol>
+  <li><strong>计算瓶颈：</strong>叶→根的顺序遍历无法并行化，PyTorch 下训练耗时比 MLP 高 4–6×（JAX 下约 2×）。推理端可接受（&lt;5 ms），但大规模训练受限。</li>
+  <li><strong>仅支持本体感知：</strong>当前架构不处理高维感知输入（如视觉），限制了在导航/操作任务中的适用性。</li>
+  <li><strong>任务范围窄：</strong>仅在运动控制上验证，操作（manipulation）和接触丰富任务未探索。</li>
+  <li><strong>树结构假设：</strong>闭链机构（如平行四连杆）不在当前框架覆盖范围内。</li>
+  <li><strong>物理先验的刚性：</strong>虽然参数可学，但叶→根单向传递结构是否足以覆盖所有需要双向信息流的任务场景（如操作中需要从末端执行器向基座传递反馈），值得探讨。</li>
+</ol>
+
+<h2>💎 与 OmniBot/RAL 的关联</h2>
+<ul>
+  <li><strong>轮足机器人的结构先验：</strong>轮足机器人（如 OmniBot）具有明确的树形运动链，ABD-Net 的惯性传播机制可直接适配。轮式模块可视为叶节点，其惯性特性通过连杆聚合到躯干，为全身协调运动提供动力学一致的表征。</li>
+  <li><strong>动力学泛化对轮足的意义：</strong>轮足机器人在不同地形（如斜坡、台阶边缘）等效动力学参数会显著变化，ABD-Net 展现的质量偏移鲁棒性（平均 23.9% 提升）对这类场景极具价值。</li>
+  <li><strong>正交约束的可迁移性：</strong>正交约束作为一种轻量但高效的正则化手段，可直接嵌入任何基于 GNN 的策略网络，包括 RAL 论文中可能使用的图消息传递架构。</li>
+  <li><strong>实时推理的参考价值：</strong>&lt;5 ms 推理延迟证明该架构可部署在 Jetson 级嵌入式平台上，与 OmniBot 的硬件约束一致。</li>
+  <li><strong>局限性提示：</strong>叶→根单向传递可能不足以描述轮足机器人的轮-地接触反馈回路，可能需要增加根→叶的反向传递通道（类似 ABA 的第二遍扫描）。</li>
+  <li><strong>Reward 设计参考：</strong>基座高度正则化权重极高（10–50），暗示在腿式机器人运动控制中，姿态稳定性的奖励权重需要远高于跟踪精度，这对 RAL 的 reward 调参有直接参考意义。</li>
+</ul>
+
+<hr>
+<p>📥 <i>Note generated by OpenClaw Agent.</i></p>
+</body>
+</html>
