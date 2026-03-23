@@ -15,6 +15,7 @@ import sys
 import textwrap
 import urllib.request
 import urllib.error
+import urllib.parse
 from datetime import datetime
 from pathlib import Path
 
@@ -192,6 +193,104 @@ def download_pdf(pdf_url: str, storage_dir: Path, title: str) -> Path | None:
     except Exception as e:
         logger.error(f"PDF download failed: {e}")
         return None
+
+
+# ── PDF upload to Zotero storage ──────────────────────────────────────
+def upload_pdf(pdf_path: Path, parent_key: str, api_key: str) -> bool:
+    """Upload PDF to Zotero file storage via attachment upload API."""
+    import hashlib, mimetypes
+
+    pdf_bytes = pdf_path.read_bytes()
+    md5 = hashlib.md5(pdf_bytes).hexdigest()
+    size = len(pdf_bytes)
+    filename = pdf_path.name
+
+    # Step 1: Create attachment item (imported_file)
+    attach = {
+        "itemType": "attachment",
+        "parentItem": parent_key,
+        "linkMode": "imported_file",
+        "title": filename,
+        "contentType": "application/pdf",
+        "md5": md5,
+        "mtime": int(pdf_path.stat().st_mtime * 1000),
+        "collections": [],
+    }
+    a_status, a_resp = zotero_request("POST", "/items", [attach], api_key=api_key)
+    if a_status != 200 or not a_resp.get("successful"):
+        logger.warning(f"Attachment item creation failed: {a_status} {str(a_resp)[:100]}")
+        return False
+    attach_key = a_resp["successful"]["0"]["key"]
+    logger.info(f"Attachment item created: {attach_key}")
+
+    # Step 2: Request upload authorization
+    auth_url = f"{ZOTERO_API_BASE}/items/{attach_key}/file"
+    params = f"md5={md5}&filename={urllib.parse.quote(filename)}&filesize={size}&mtime={int(pdf_path.stat().st_mtime * 1000)}"
+    req = urllib.request.Request(
+        auth_url + "?" + params,
+        headers={
+            "Zotero-API-Key": api_key,
+            "Zotero-API-Version": "3",
+            "If-None-Match": "*",
+        },
+        method="POST",
+        data=b"",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            auth = json.loads(resp.read())
+    except urllib.error.HTTPError as e:
+        body = e.read().decode()
+        if e.code == 412:
+            logger.info("PDF already uploaded (412), skipping upload")
+            return True
+        logger.warning(f"Upload auth failed: {e.code} {body[:150]}")
+        return False
+
+    if "exists" in auth:
+        logger.info("PDF already exists on Zotero server")
+        return True
+
+    # Step 3: Upload to S3
+    upload_url = auth["url"]
+    prefix = auth.get("prefix", "")
+    suffix = auth.get("suffix", "")
+    content_type = auth.get("contentType", "application/pdf")
+    upload_key = auth["uploadKey"]
+
+    body = prefix.encode() + pdf_bytes + suffix.encode()
+    upload_req = urllib.request.Request(
+        upload_url,
+        data=body,
+        headers={"Content-Type": content_type},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(upload_req, timeout=120) as resp:
+            logger.info(f"S3 upload: {resp.status}")
+    except Exception as e:
+        logger.warning(f"S3 upload failed: {e}")
+        return False
+
+    # Step 4: Register upload
+    reg_req = urllib.request.Request(
+        auth_url,
+        data=f"upload={upload_key}".encode(),
+        headers={
+            "Zotero-API-Key": api_key,
+            "Zotero-API-Version": "3",
+            "Content-Type": "application/x-www-form-urlencoded",
+            "If-None-Match": "*",
+        },
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(reg_req, timeout=30) as resp:
+            logger.info(f"Upload registered: {resp.status}")
+            return True
+    except Exception as e:
+        logger.warning(f"Upload registration failed: {e}")
+        return False
 
 
 # ── Note generation ────────────────────────────────────────────────────
@@ -382,6 +481,23 @@ def process_paper(paper: dict, index: list, api_key: str, dry_run: bool = False)
     storage_dir.mkdir(parents=True, exist_ok=True)
     pdf_url = paper.get("pdf_url", f"https://arxiv.org/pdf/{arxiv_id}.pdf")
     pdf_path = download_pdf(pdf_url, storage_dir, title)
+
+    # Attach PDF as linked_file (points to local OneDrive path)
+    if pdf_path and pdf_path.exists():
+        attach = {
+            "itemType": "attachment",
+            "parentItem": item_key,
+            "linkMode": "linked_file",
+            "title": pdf_path.stem[:60],
+            "path": str(pdf_path),
+            "contentType": "application/pdf",
+            "collections": [],
+        }
+        a_status, a_resp = zotero_request("POST", "/items", [attach], api_key=api_key)
+        if a_status == 200 and a_resp.get("successful"):
+            logger.info(f"PDF linked_file attachment created: {pdf_path.name}")
+        else:
+            logger.warning(f"PDF attachment failed: {a_status} {str(a_resp)[:100]}")
 
     # Generate reading note
     note_path = generate_note(paper, collection_name, storage_dir)
