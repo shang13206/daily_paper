@@ -181,7 +181,7 @@ def fetch_arxiv_metadata(arxiv_id: str) -> dict | None:
 
 # ── PDF download ───────────────────────────────────────────────────────
 def download_pdf(pdf_url: str, storage_dir: Path, title: str) -> Path | None:
-    safe = re.sub(r'[<>:"/\\|?*]', '', title)[:70].strip()
+    safe = re.sub(r'[<>:"/\\|?*]', '', title)[:70].strip().replace(' ', '_')
     pdf_path = storage_dir / f"{safe}.pdf"
     logger.info(f"Downloading PDF: {pdf_url}")
     try:
@@ -291,6 +291,32 @@ def upload_pdf(pdf_path: Path, parent_key: str, api_key: str) -> bool:
     except Exception as e:
         logger.warning(f"Upload registration failed: {e}")
         return False
+
+
+# ── OneDrive sync helper ───────────────────────────────────────────────
+def _sync_onedrive(local_dir: Path):
+    """Trigger onedrive --synchronize for a specific directory after adding new files."""
+    import subprocess, shutil
+    if not shutil.which("onedrive"):
+        return
+    # Convert absolute path to relative OneDrive path
+    try:
+        onedrive_root = Path(os.path.expanduser("~/OneDrive"))
+        rel = str(local_dir.relative_to(onedrive_root))
+    except ValueError:
+        return
+    env = os.environ.copy()
+    env["HTTPS_PROXY"] = "http://127.0.0.1:7897"
+    env["HTTP_PROXY"] = "http://127.0.0.1:7897"
+    logger.info(f"Triggering OneDrive sync for: {rel}")
+    try:
+        subprocess.run(
+            ["onedrive", "--synchronize", "--single-directory", rel, "--resync"],
+            env=env, timeout=120, capture_output=True
+        )
+        logger.info(f"OneDrive sync done: {rel}")
+    except Exception as e:
+        logger.warning(f"OneDrive sync failed (non-critical): {e}")
 
 
 # ── Note generation ────────────────────────────────────────────────────
@@ -496,6 +522,8 @@ def process_paper(paper: dict, index: list, api_key: str, dry_run: bool = False)
         a_status, a_resp = zotero_request("POST", "/items", [attach], api_key=api_key)
         if a_status == 200 and a_resp.get("successful"):
             logger.info(f"PDF linked_file attachment created: {pdf_path.name}")
+            # Trigger OneDrive sync for this new directory
+            _sync_onedrive(pdf_path.parent)
         else:
             logger.warning(f"PDF attachment failed: {a_status} {str(a_resp)[:100]}")
 
