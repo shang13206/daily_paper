@@ -489,7 +489,7 @@ def process_paper(paper: dict, index: list, api_key: str, dry_run: bool = False)
             "parentItem": item_key,
             "linkMode": "linked_file",
             "title": pdf_path.stem[:60],
-            "path": str(pdf_path),
+            "path": "attachments:" + str(pdf_path.relative_to(ONEDRIVE_STORAGE.parent)),
             "contentType": "application/pdf",
             "collections": [],
         }
