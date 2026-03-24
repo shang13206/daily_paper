@@ -452,9 +452,11 @@ def process_paper(paper: dict, index: list, api_key: str, dry_run: bool = False)
     pdf_url = paper.get("pdf_url", f"https://arxiv.org/pdf/{arxiv_id}.pdf")
     pdf_path = download_pdf(pdf_url, storage_dir, title)
 
-    # Register as linked_file attachment in Zotero (absolute path, no base dir config needed)
+    # Register as linked_file attachment with portable relative path
+    # Requires Zotero "Linked Attachment Base Directory" set to ~/OneDrive/Zotero (or Windows equivalent)
     if pdf_path and pdf_path.exists():
-        zotero_path = str(pdf_path.resolve())
+        rel_to_onedrive = pdf_path.relative_to(ONEDRIVE_STORAGE.parent)
+        zotero_path = f"attachments:{rel_to_onedrive.as_posix()}"
 
         attach = {
             "itemType": "attachment",
