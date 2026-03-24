@@ -13,6 +13,7 @@ import re
 import subprocess
 import sys
 import textwrap
+import time
 import urllib.request
 import urllib.error
 import urllib.parse
@@ -67,8 +68,32 @@ def get_api_key() -> str:
     raise RuntimeError(f"Zotero API key not found. Put it in {API_KEY_FILE} or set ZOTERO_API_KEY env var.")
 
 
+def _request_with_retry(req: urllib.request.Request, timeout: int = 30,
+                         max_retries: int = 3, backoff: float = 5.0) -> tuple[int, bytes]:
+    """Execute a urllib request with retry on transient errors (timeout / 5xx).
+    Returns (status_code, body_bytes). Raises on persistent failure.
+    """
+    last_exc = None
+    for attempt in range(1, max_retries + 1):
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                return resp.status, resp.read()
+        except urllib.error.HTTPError as e:
+            if e.code < 500:
+                raise  # 4xx — don't retry
+            last_exc = e
+            logger.warning(f"HTTP {e.code} on attempt {attempt}/{max_retries}, retrying in {backoff}s…")
+        except (urllib.error.URLError, TimeoutError, OSError) as e:
+            last_exc = e
+            logger.warning(f"Network error on attempt {attempt}/{max_retries}: {e}, retrying in {backoff}s…")
+        if attempt < max_retries:
+            time.sleep(backoff)
+            backoff *= 2  # exponential backoff
+    raise last_exc  # propagate after all retries exhausted
+
+
 def zotero_request(method: str, path: str, body=None, api_key: str = "") -> tuple[int, any]:
-    """Make a Zotero Web API request."""
+    """Make a Zotero Web API request (with retry on transient errors)."""
     url = ZOTERO_API_BASE + path
     data = json.dumps(body).encode() if body is not None else None
     headers = {
@@ -79,13 +104,16 @@ def zotero_request(method: str, path: str, body=None, api_key: str = "") -> tupl
     }
     req = urllib.request.Request(url, data=data, headers=headers, method=method)
     try:
-        with urllib.request.urlopen(req, timeout=30) as resp:
-            body_str = resp.read().decode()
-            return resp.status, json.loads(body_str) if body_str.strip() else {}
+        status, body_bytes = _request_with_retry(req, timeout=30)
+        body_str = body_bytes.decode()
+        return status, json.loads(body_str) if body_str.strip() else {}
     except urllib.error.HTTPError as e:
         body_str = e.read().decode()
         logger.error(f"HTTP {e.code} for {method} {url}: {body_str[:200]}")
         return e.code, {}
+    except Exception as e:
+        logger.error(f"Request failed after retries: {method} {url}: {e}")
+        return 0, {}
 
 
 def fetch_collections(api_key: str) -> dict[str, str]:
@@ -127,7 +155,7 @@ def save_index(index: list):
 def check_duplicate(index: list, arxiv_id: str, doi: str = "") -> bool:
     clean_id = arxiv_id.replace("v1", "").replace("v2", "").replace("v3", "")
     for item in index:
-        item_id = item.get("arxiv_id", "").replace("v1", "").replace("v2", "").replace("v3", "")
+        item_id = (item.get("arxiv_id") or "").replace("v1", "").replace("v2", "").replace("v3", "")
         if item_id == clean_id:
             return True
         if doi and item.get("doi") == doi:
@@ -141,8 +169,8 @@ def fetch_arxiv_metadata(arxiv_id: str) -> dict | None:
     url = f"http://export.arxiv.org/api/query?id_list={arxiv_id}"
     try:
         req = urllib.request.Request(url, headers={"User-Agent": "OpenClaw/1.0"})
-        with urllib.request.urlopen(req, timeout=30) as resp:
-            data = resp.read().decode("utf-8")
+        _, body = _request_with_retry(req, timeout=30)
+        data = body.decode("utf-8")
         root = ET.fromstring(data)
         ns = {"atom": "http://www.w3.org/2005/Atom", "arxiv": "http://arxiv.org/schemas/atom"}
         entry = root.find("atom:entry", ns)
@@ -179,118 +207,34 @@ def fetch_arxiv_metadata(arxiv_id: str) -> dict | None:
         return None
 
 
-# ── PDF download ───────────────────────────────────────────────────────
+# ── PDF download (OneDrive only) ──────────────────────────────────────
 def download_pdf(pdf_url: str, storage_dir: Path, title: str) -> Path | None:
+    """Download PDF to ~/OneDrive/Zotero/storage/{key}/ — no Zotero cloud upload."""
     safe = re.sub(r'[<>:"/\\|?*]', '', title)[:70].strip().replace(' ', '_')
     pdf_path = storage_dir / f"{safe}.pdf"
-    logger.info(f"Downloading PDF: {pdf_url}")
-    try:
-        req = urllib.request.Request(pdf_url, headers={"User-Agent": "Mozilla/5.0"})
-        with urllib.request.urlopen(req, timeout=60) as resp:
-            pdf_path.write_bytes(resp.read())
-        logger.info(f"PDF saved: {pdf_path}")
-        return pdf_path
-    except Exception as e:
-        logger.error(f"PDF download failed: {e}")
-        return None
 
+    # Try both bare URL and v1 variant
+    urls_to_try = [pdf_url]
+    # If URL ends with .pdf, also try inserting v1 before .pdf
+    if pdf_url.endswith(".pdf") and "v1" not in pdf_url:
+        urls_to_try.append(pdf_url.replace(".pdf", "v1.pdf"))
 
-# ── PDF upload to Zotero storage ──────────────────────────────────────
-def upload_pdf(pdf_path: Path, parent_key: str, api_key: str) -> bool:
-    """Upload PDF to Zotero file storage via attachment upload API."""
-    import hashlib, mimetypes
+    for url in urls_to_try:
+        logger.info(f"Downloading PDF: {url}")
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+            _, body = _request_with_retry(req, timeout=60, max_retries=3, backoff=5.0)
+            if len(body) < 1000:
+                logger.warning(f"Response too small ({len(body)}B), probably not a PDF — skipping")
+                continue
+            pdf_path.write_bytes(body)
+            logger.info(f"PDF saved to OneDrive: {pdf_path} ({len(body)//1024} KB)")
+            return pdf_path
+        except Exception as e:
+            logger.warning(f"PDF download failed ({url}): {e}")
 
-    pdf_bytes = pdf_path.read_bytes()
-    md5 = hashlib.md5(pdf_bytes).hexdigest()
-    size = len(pdf_bytes)
-    filename = pdf_path.name
-
-    # Step 1: Create attachment item (imported_file)
-    attach = {
-        "itemType": "attachment",
-        "parentItem": parent_key,
-        "linkMode": "imported_file",
-        "title": filename,
-        "contentType": "application/pdf",
-        "md5": md5,
-        "mtime": int(pdf_path.stat().st_mtime * 1000),
-        "collections": [],
-    }
-    a_status, a_resp = zotero_request("POST", "/items", [attach], api_key=api_key)
-    if a_status != 200 or not a_resp.get("successful"):
-        logger.warning(f"Attachment item creation failed: {a_status} {str(a_resp)[:100]}")
-        return False
-    attach_key = a_resp["successful"]["0"]["key"]
-    logger.info(f"Attachment item created: {attach_key}")
-
-    # Step 2: Request upload authorization
-    auth_url = f"{ZOTERO_API_BASE}/items/{attach_key}/file"
-    params = f"md5={md5}&filename={urllib.parse.quote(filename)}&filesize={size}&mtime={int(pdf_path.stat().st_mtime * 1000)}"
-    req = urllib.request.Request(
-        auth_url + "?" + params,
-        headers={
-            "Zotero-API-Key": api_key,
-            "Zotero-API-Version": "3",
-            "If-None-Match": "*",
-        },
-        method="POST",
-        data=b"",
-    )
-    try:
-        with urllib.request.urlopen(req, timeout=30) as resp:
-            auth = json.loads(resp.read())
-    except urllib.error.HTTPError as e:
-        body = e.read().decode()
-        if e.code == 412:
-            logger.info("PDF already uploaded (412), skipping upload")
-            return True
-        logger.warning(f"Upload auth failed: {e.code} {body[:150]}")
-        return False
-
-    if "exists" in auth:
-        logger.info("PDF already exists on Zotero server")
-        return True
-
-    # Step 3: Upload to S3
-    upload_url = auth["url"]
-    prefix = auth.get("prefix", "")
-    suffix = auth.get("suffix", "")
-    content_type = auth.get("contentType", "application/pdf")
-    upload_key = auth["uploadKey"]
-
-    body = prefix.encode() + pdf_bytes + suffix.encode()
-    upload_req = urllib.request.Request(
-        upload_url,
-        data=body,
-        headers={"Content-Type": content_type},
-        method="POST",
-    )
-    try:
-        with urllib.request.urlopen(upload_req, timeout=120) as resp:
-            logger.info(f"S3 upload: {resp.status}")
-    except Exception as e:
-        logger.warning(f"S3 upload failed: {e}")
-        return False
-
-    # Step 4: Register upload
-    reg_req = urllib.request.Request(
-        auth_url,
-        data=f"upload={upload_key}".encode(),
-        headers={
-            "Zotero-API-Key": api_key,
-            "Zotero-API-Version": "3",
-            "Content-Type": "application/x-www-form-urlencoded",
-            "If-None-Match": "*",
-        },
-        method="POST",
-    )
-    try:
-        with urllib.request.urlopen(reg_req, timeout=30) as resp:
-            logger.info(f"Upload registered: {resp.status}")
-            return True
-    except Exception as e:
-        logger.warning(f"Upload registration failed: {e}")
-        return False
+    logger.error("All PDF download attempts failed")
+    return None
 
 
 # ── OneDrive sync helper ───────────────────────────────────────────────
@@ -502,30 +446,37 @@ def process_paper(paper: dict, index: list, api_key: str, dry_run: bool = False)
     item_key = resp["successful"]["0"]["key"]
     logger.info(f"Zotero item created: key={item_key}")
 
-    # Download PDF to OneDrive storage
+    # Download PDF to ~/OneDrive/Zotero/storage/{key}/ (local only, no cloud upload)
     storage_dir = ONEDRIVE_STORAGE / item_key
     storage_dir.mkdir(parents=True, exist_ok=True)
     pdf_url = paper.get("pdf_url", f"https://arxiv.org/pdf/{arxiv_id}.pdf")
     pdf_path = download_pdf(pdf_url, storage_dir, title)
 
-    # Attach PDF as linked_file (points to local OneDrive path)
+    # Register as linked_file attachment in Zotero (points to local OneDrive path)
     if pdf_path and pdf_path.exists():
+        # Zotero linked_file path uses "attachments:" prefix relative to base dir
+        try:
+            rel_path = pdf_path.relative_to(ONEDRIVE_STORAGE.parent)
+            zotero_path = "attachments:" + str(rel_path)
+        except ValueError:
+            zotero_path = str(pdf_path)
+
         attach = {
             "itemType": "attachment",
             "parentItem": item_key,
             "linkMode": "linked_file",
             "title": pdf_path.stem[:60],
-            "path": "attachments:" + str(pdf_path.relative_to(ONEDRIVE_STORAGE.parent)),
+            "path": zotero_path,
             "contentType": "application/pdf",
             "collections": [],
         }
         a_status, a_resp = zotero_request("POST", "/items", [attach], api_key=api_key)
         if a_status == 200 and a_resp.get("successful"):
-            logger.info(f"PDF linked_file attachment created: {pdf_path.name}")
-            # Trigger OneDrive sync for this new directory
+            logger.info(f"PDF linked_file attachment registered: {pdf_path.name}")
             _sync_onedrive(pdf_path.parent)
         else:
-            logger.warning(f"PDF attachment failed: {a_status} {str(a_resp)[:100]}")
+            logger.warning(f"PDF attachment registration failed: {a_status} {str(a_resp)[:100]}")
+            logger.info(f"PDF still saved locally at: {pdf_path}")
 
     # Generate reading note
     note_path = generate_note(paper, collection_name, storage_dir)
