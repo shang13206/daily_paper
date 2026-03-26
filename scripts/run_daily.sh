@@ -12,11 +12,15 @@ DATA_DIR="$SCRIPT_DIR/data"
 # Parse arguments
 TARGET_DATE=""
 NO_LLM=""
+DAYS=3   # Default: fetch last 3 days
 
 for arg in "$@"; do
     case "$arg" in
         --no-llm)
             NO_LLM="--no-llm"
+            ;;
+        --days=*)
+            DAYS="${arg#--days=}"
             ;;
         *)
             if [ -z "$TARGET_DATE" ]; then
@@ -43,7 +47,7 @@ fi
 
 echo "========================================" >&2
 echo " Daily Paper Pipeline" >&2
-echo " Date: $TARGET_DATE" >&2
+echo " Date: $TARGET_DATE (last $DAYS days)" >&2
 if [ -n "$NO_LLM" ]; then
     echo " LLM Scoring: DISABLED" >&2
 fi
@@ -59,6 +63,7 @@ echo "" >&2
 echo "[1/3] Fetching papers from arXiv..." >&2
 python3 "$SCRIPT_DIR/fetch_papers.py" \
     --date "$TARGET_DATE" \
+    --days "$DAYS" \
     --config "$SCRIPT_DIR/config.yaml" \
     --output "$FETCH_FILE"
 

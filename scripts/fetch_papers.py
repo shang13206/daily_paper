@@ -40,15 +40,21 @@ def fetch_arxiv_papers(
     max_results: int = 200,
     delay: float = 3.0,
     timeout: int = 30,
+    days: int = 1,
 ) -> list[dict]:
     """Fetch papers from arXiv API.
 
     arXiv publishes new papers around 14:00 ET (18:00 UTC).
     The API's submittedDate range filter is unreliable, so we fetch
     the most recent papers sorted by submittedDate and filter locally.
-    We use pagination to ensure we capture all papers for the target date.
+    We use pagination to ensure we capture all papers for the target date range.
+
+    Args:
+        days: Number of days to fetch, counting back from date_str (inclusive).
+              E.g. days=3 fetches [date_str-2, date_str-1, date_str].
     """
     target = datetime.strptime(date_str, "%Y-%m-%d")
+    start_date = target - timedelta(days=days - 1)
 
     all_papers = {}  # arxiv_id -> paper dict (dedup across categories)
 
@@ -110,7 +116,8 @@ def fetch_arxiv_papers(
                 if ann_dt > target:
                     # Paper announced after target date, skip but keep going
                     continue
-                elif ann_dt == target:
+                elif ann_dt >= start_date:
+                    # Paper falls within the target date range [start_date, target]
                     found_target_date = True
                     arxiv_id = paper["arxiv_id"]
                     if arxiv_id in all_papers:
@@ -121,7 +128,7 @@ def fetch_arxiv_papers(
                         all_papers[arxiv_id] = paper
                         count += 1
                 else:
-                    # Paper announced before target date, we've passed it
+                    # Paper announced before start_date, we've passed the range
                     passed_target_date = True
                     break
 
@@ -252,6 +259,12 @@ def main():
     parser.add_argument(
         "--output", type=str, default=None, help="Output JSON path (default: stdout)"
     )
+    parser.add_argument(
+        "--days",
+        type=int,
+        default=1,
+        help="Number of days to fetch back from --date (default: 1, i.e. single day)",
+    )
     args = parser.parse_args()
 
     config = load_config(args.config)
@@ -270,6 +283,7 @@ def main():
         max_results=arxiv_cfg["max_results_per_category"],
         delay=arxiv_cfg["request_delay"],
         timeout=arxiv_cfg["timeout"],
+        days=args.days,
     )
 
     output = {
