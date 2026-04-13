@@ -137,7 +137,7 @@ def venue_institution_bonus(paper: dict, config: dict) -> tuple[int, str, list[s
                 break
             tier_bonus = venue_bonus_cfg.get(tier, 0)
             for venue_kw in venue_keywords.get(tier, []):
-                if venue_kw.lower() in comment_lower:
+                if _keyword_in_text(venue_kw, comment_lower):
                     bonus += tier_bonus
                     matched_venue = venue_kw.strip()
                     venue_found = True
@@ -154,7 +154,7 @@ def venue_institution_bonus(paper: dict, config: dict) -> tuple[int, str, list[s
         for tier in ["tier1", "tier2"]:
             tier_bonus = inst_bonus_cfg.get(tier, 0)
             for inst_kw in inst_keywords.get(tier, []):
-                if inst_kw.lower() in aff_text:
+                if _keyword_in_text(inst_kw, aff_text):
                     if inst_kw not in matched_institutions:
                         matched_institutions.append(inst_kw)
                     if tier_bonus > best_inst_tier_bonus:
