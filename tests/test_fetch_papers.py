@@ -7,7 +7,7 @@ from scripts.fetch_papers import (
     _extract_list_sections,
     fetch_arxiv_papers,
 )
-from scripts.score_papers import venue_institution_bonus
+from scripts.score_papers import filter_papers, venue_institution_bonus
 
 
 SAMPLE_LIST_HTML = """
@@ -38,6 +38,14 @@ SAMPLE_LIST_HTML = """
 
 SCORE_CONFIG = {
     "scoring": {
+        "filter": {
+            "exclude_keywords": ["student dropout"],
+            "core_include_keywords": ["quadruped", "sim-to-real", "navigation", "slam"],
+            "perception_keywords": ["depth estimation", "visual odometry"],
+            "robotics_context_keywords": ["robot", "robotics", "navigation", "mobile robot"],
+            "require_robotics_context_for_perception": True,
+            "allow_primary_csro": True,
+        },
         "venue_bonus": {"tier1": 35, "tier2": 20, "tier3": 10},
         "venue_keywords": {
             "tier1": ["TRO"],
@@ -102,3 +110,38 @@ def test_short_acronyms_still_match_as_standalone_tokens():
     assert bonus == 35 + 15
     assert matched_venue == "TRO"
     assert matched_institutions == ["FAIR"]
+
+
+def test_filter_keeps_perception_only_with_robotics_context():
+    papers = [
+        {
+            "title": "Monocular depth estimation for general web videos",
+            "abstract": "A depth estimation benchmark for internet videos.",
+            "categories": ["cs.CV"],
+        },
+        {
+            "title": "Monocular depth estimation for mobile robot navigation",
+            "abstract": "A robot navigation system with depth estimation.",
+            "categories": ["cs.CV"],
+        },
+    ]
+    kept = filter_papers(papers, SCORE_CONFIG)
+    assert len(kept) == 1
+    assert kept[0]["title"] == "Monocular depth estimation for mobile robot navigation"
+
+
+def test_filter_keeps_core_robotics_and_primary_csro_backstop():
+    papers = [
+        {
+            "title": "Quadruped locomotion with sim-to-real adaptation",
+            "abstract": "A quadruped robot policy for rough terrain.",
+            "categories": ["cs.AI", "cs.RO"],
+        },
+        {
+            "title": "A compliant parallel manipulator design note",
+            "abstract": "Robot kinematics without locomotion or navigation.",
+            "categories": ["cs.RO"],
+        },
+    ]
+    kept = filter_papers(papers, SCORE_CONFIG)
+    assert len(kept) == 2

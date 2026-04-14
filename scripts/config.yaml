@@ -1,294 +1,387 @@
-# ===== arXiv Daily Paper Pipeline Configuration =====
-
-# arXiv categories to fetch
 arxiv:
   categories:
-    - cs.RO
-    - cs.AI
-    - cs.LG
-    - cs.CV
-  # Max results per query (arXiv API limit)
+  - cs.RO
+  - cs.AI
+  - cs.LG
+  - cs.CV
   max_results_per_category: 200
-  # Sleep between API requests (seconds) to respect rate limits
   request_delay: 3.0
-  # Request timeout (seconds)
   timeout: 30
-
-# --- Scoring Configuration ---
 scoring:
-  # First layer: keyword-based quick filter
-  # Papers matching ANY exclude keyword (in title+abstract) AND matching NONE of
-  # the include keywords will be discarded.
   filter:
-    # If a paper matches these AND has no robotics relevance, discard it
     exclude_keywords:
-      - large language model
-      - text generation
-      - machine translation
-      - natural language processing
-      - speech recognition
-      - image generation
-      - diffusion model for image
-      - video generation
-      - text-to-image
-      - text-to-video
-      - image super-resolution
-      - image inpainting
-      - face recognition
-      - face detection
-      - sentiment analysis
-      - question answering
-      - dialogue system
-      - medical imaging
-      - drug discovery
-      - protein folding
-      - genomics
-      - stock prediction
-      - financial
-      - recommendation system
-      - graph neural network
-      - federated learning
-      - differential privacy
-    # Papers with these keywords survive the filter regardless
-    include_keywords:
-      - robot
-      - robotic
-      - locomotion
-      - manipulation
-      - grasp
-      - embodied
-      - sim-to-real
-      - sim2real
-      - legged
-      - bipedal
-      - quadruped
-      - wheeled
-      - humanoid
-      - navigation
-      - planning for robot
-      - dexterous
-      - actuator
-      - control policy
-      - motor control
-      - terrain
-      - isaac
-      - mujoco
-      - pybullet
-      - gazebo
-
-  # Second layer: weighted keyword scoring
-  # Each matched keyword adds its weight to the paper's score
-  high_weight: 15
-  mid_weight: 8
-  low_weight: 4
-
+    - large language model
+    - text generation
+    - machine translation
+    - natural language processing
+    - speech recognition
+    - image generation
+    - diffusion model for image
+    - video generation
+    - text-to-image
+    - text-to-video
+    - image super-resolution
+    - image inpainting
+    - face recognition
+    - face detection
+    - sentiment analysis
+    - question answering
+    - dialogue system
+    - medical imaging
+    - drug discovery
+    - protein folding
+    - genomics
+    - stock prediction
+    - financial
+    - recommendation system
+    - federated learning
+    - differential privacy
+    - education
+    - student dropout
+    - advertising
+    - marketing
+    - social network
+    - code generation
+    - reasoning model
+    - video large language model
+    - multimodal large language model
+    - document understanding
+    - ocr
+    core_include_keywords:
+    - wheeled-legged
+    - wheel-legged
+    - wheeled legged
+    - legged robot
+    - legged locomotion
+    - quadruped
+    - quadrupedal
+    - biped
+    - bipedal
+    - humanoid locomotion
+    - locomotion
+    - gait
+    - terrain adaptation
+    - rough terrain
+    - uneven terrain
+    - whole-body control
+    - model predictive control
+    - control barrier function
+    - mpc
+    - path planning
+    - slam
+    - odometry
+    - localization
+    - sim-to-real
+    - sim2real
+    - sim-to-sim
+    - sim2sim
+    - domain randomization
+    - system identification
+    - policy transfer
+    - robot control
+    - control policy
+    - isaac lab
+    - isaac gym
+    - mujoco
+    - imu
+    - contact estimation
+    - traversability
+    - foothold
+    - robot navigation
+    - visual navigation
+    - navigation policy
+    - mobile robot navigation
+    - legged navigation
+    - state estimation for robot
+    - robot motion planning
+    - reinforcement learning locomotion
+    - robot reinforcement learning
+    perception_keywords:
+    - depth estimation
+    - depth completion
+    - monocular depth
+    - stereo depth
+    - semantic segmentation
+    - occupancy
+    - scene flow
+    - optical flow
+    - visual odometry
+    - lidar
+    - lidar-inertial
+    - point cloud
+    - mapping
+    - 3d reconstruction
+    - place recognition
+    - visual navigation
+    - vision-language navigation
+    - frontier exploration
+    - terrain perception
+    - heightmap
+    - elevation map
+    - traversability estimation
+    - state estimation
+    - pose estimation
+    robotics_context_keywords:
+    - robot
+    - robotic
+    - robotics
+    - autonomous driving
+    - autonomous vehicle
+    - ground robot
+    - mobile robot
+    - quadruped
+    - biped
+    - humanoid
+    - legged
+    - wheeled
+    - drone
+    - uav
+    - aerial robot
+    - manipulator
+    - navigation
+    - locomotion
+    - slam
+    - odometry
+    - mapping
+    - terrain
+    deprioritize_keywords:
+    - teleoperation
+    - prosthesis
+    - exoskeleton
+    - rehabilitation
+    - surgical robot
+    - anthropomorphic hand
+    - grasp
+    - grasping
+    - dexterous manipulation
+    - in-hand manipulation
+    - soft hand
+    - perching
+    - micro aerial
+    - wireless system
+    - student dropout
+    - assembly
+    - manipulation
+    - dexterous
+    - surgical
+    require_robotics_context_for_perception: true
+    allow_primary_csro: true
+  high_weight: 18
+  mid_weight: 10
+  low_weight: 5
   keywords:
     high:
-      - wheeled-legged
-      - wheel-legged
-      - wheeled legged
-      - wheel leg
-      - hybrid locomotion
-      - reinforcement learning locomotion
-      - rl locomotion
-      - rl for locomotion
-      - sim-to-real transfer
-      - sim2real transfer
-      - sim-to-real
-      - sim2real
-      - terrain adaptation
-      - terrain traversal
-      - rough terrain
-      - uneven terrain
-      - isaac lab
-      - isaaclab
-      - isaac gym
-      - mujoco locomotion
-      - locomotion policy
-      - locomotion control
-      - gait learning
-      - gait adaptation
-
+    - wheeled-legged
+    - wheel-legged
+    - wheeled legged
+    - quadruped locomotion
+    - legged locomotion
+    - humanoid locomotion
+    - locomotion control
+    - locomotion policy
+    - gait learning
+    - gait adaptation
+    - terrain adaptation
+    - rough terrain
+    - sim-to-real
+    - sim2real
+    - sim-to-sim
+    - sim2sim
+    - policy transfer
+    - domain randomization
+    - control barrier function
+    - whole-body control
+    - model predictive control
+    - navigation policy
+    - visual navigation
+    - slam
+    - state estimation
+    - visual odometry
+    - lidar-inertial odometry
+    - terrain perception
+    - traversability estimation
+    - isaac lab
+    - mujoco
     mid:
-      - legged robot
-      - legged locomotion
-      - bipedal robot
-      - bipedal locomotion
-      - quadruped robot
-      - quadrupedal
-      - humanoid robot
-      - humanoid locomotion
-      - robot learning
-      - robot reinforcement learning
-      - navigation reinforcement learning
-      - rl navigation
-      - whole-body control
-      - model predictive control robot
-      - dynamic walking
-      - balance control
-      - contact-rich
-      - motion planning robot
-
+    - quadruped
+    - quadrupedal
+    - bipedal
+    - humanoid robot
+    - legged robot
+    - mobile robot
+    - robot navigation
+    - motion planning
+    - path planning
+    - localization
+    - mapping
+    - odometry
+    - depth estimation
+    - monocular depth
+    - semantic segmentation
+    - point cloud
+    - occupancy
+    - elevation map
+    - heightmap
+    - contact estimation
+    - model predictive control robot
+    - dynamic walking
+    - reinforcement learning locomotion
+    - visual navigation
+    - state estimation for robot
     low:
-      - manipulation
-      - grasping
-      - grasp
-      - dexterous manipulation
-      - visual language action
-      - vla
-      - robot foundation model
-      - embodied ai
-      - embodied agent
-      - tactile sensing
-      - force control
-      - compliant control
-      - mobile robot
-      - robot navigation
-      - path planning
-
-  # Bonus: extra points if paper is primarily in cs.RO
+    - embodied ai
+    - vision-language navigation
+    - place recognition
+    - 3d reconstruction
+    - pose estimation
+    - manipulation
+    - tactile sensing
+    - force control
+    - compliant control
+    - autonomous racing
   category_bonus:
-    cs.RO: 10
-
-  # Third layer: venue and institution bonus scoring
+    cs.RO: 12
+    cs.CV: 0
+    cs.AI: 0
+    cs.LG: 0
   venue_bonus:
-    tier1: 35  # Top-tier robotics venues (Science Robotics, TRO, RSS, CoRL...)
-    tier2: 20  # Strong robotics/ML venues (ICRA, IROS, RA-L, NeurIPS, ICML...)
-    tier3: 10  # Good venues (CVPR, ECCV, AAAI...)
+    tier1: 35
+    tier2: 20
+    tier3: 10
   venue_keywords:
     tier1:
-      - Science Robotics
-      - Transactions on Robotics
-      - TRO
-      - IJRR
-      - International Journal of Robotics Research
-      - "RSS "
-      - "Robotics: Science and Systems"
-      - CoRL
-      - Conference on Robot Learning
+    - Science Robotics
+    - Transactions on Robotics
+    - TRO
+    - IJRR
+    - International Journal of Robotics Research
+    - 'RSS '
+    - 'Robotics: Science and Systems'
+    - CoRL
+    - Conference on Robot Learning
     tier2:
-      - ICRA
-      - IROS
-      - RA-L
-      - Robotics and Automation Letters
-      - NeurIPS
-      - ICML
-      - ICLR
-      - CoRL workshop
+    - ICRA
+    - IROS
+    - RA-L
+    - Robotics and Automation Letters
+    - NeurIPS
+    - ICML
+    - ICLR
+    - CoRL workshop
     tier3:
-      - ECCV
-      - CVPR
-      - AAAI
-      - IJCAI
-
+    - ECCV
+    - CVPR
+    - AAAI
+    - IJCAI
   institution_bonus:
-    tier1: 15  # ETH, CMU, Berkeley, MIT, Stanford, DeepMind, NVIDIA...
-    tier2: 8   # 国内顶校、其他强校
+    tier1: 15
+    tier2: 8
   institution_keywords:
     tier1:
-      - ETH Zurich
-      - ETH Zürich
-      - Carnegie Mellon
-      - CMU
-      - UC Berkeley
-      - University of California, Berkeley
-      - MIT
-      - Massachusetts Institute of Technology
-      - Stanford
-      - Google DeepMind
-      - DeepMind
-      - NVIDIA
-      - Meta FAIR
-      - FAIR
+    - ETH Zurich
+    - ETH Zürich
+    - Carnegie Mellon
+    - CMU
+    - UC Berkeley
+    - University of California, Berkeley
+    - MIT
+    - Massachusetts Institute of Technology
+    - Stanford
+    - Google DeepMind
+    - DeepMind
+    - NVIDIA
+    - Meta FAIR
+    - FAIR
     tier2:
-      - Georgia Tech
-      - Georgia Institute of Technology
-      - UPenn
-      - University of Pennsylvania
-      - Princeton
-      - Tsinghua
-      - Peking University
-      - PKU
-      - Shanghai Jiao Tong
-      - SJTU
-      - Zhejiang University
-      - ZJU
-      - Oxford
-      - Cambridge
-      - Imperial College
-      - TUM
-      - Technical University of Munich
-      - KAIST
-      - University of Tokyo
-
-# --- LLM Scoring Configuration ---
+    - Georgia Tech
+    - Georgia Institute of Technology
+    - UPenn
+    - University of Pennsylvania
+    - Princeton
+    - Tsinghua
+    - Peking University
+    - PKU
+    - Shanghai Jiao Tong
+    - SJTU
+    - Zhejiang University
+    - ZJU
+    - Oxford
+    - Cambridge
+    - Imperial College
+    - TUM
+    - Technical University of Munich
+    - KAIST
+    - University of Tokyo
+  deprioritize_penalty: 8
 llm:
   enable_llm_scoring: true
-  # Minimum rule-based score to trigger LLM scoring
-  llm_score_threshold: 10
-  # Number of papers per LLM batch
+  llm_score_threshold: 18
   batch_size: 5
-  # Claude CLI command
-  claude_command: "claude"
-  # Extra CLI flags
-  claude_flags: "--permission-mode bypassPermissions --print"
-  # Model to use (passed via --model flag)
-  model: "sonnet"
+  claude_command: claude
+  claude_flags: --permission-mode bypassPermissions --print
+  model: sonnet
+research_profile: '研究方向：机器人运动控制、导航与感知的一体化系统，核心项目是 OmniBot（轮足/四足机器人），重点关注 locomotion
+  policy learning、terrain adaptation、state estimation、navigation、sim-to-real / sim2sim。
 
-# --- Research Profile (used for LLM scoring) ---
-research_profile: |
-  研究方向：机器人运动控制与导航（RL 为主，但不排斥 MPC、传统控制等方法）。
-  机器人平台不限：轮足、四足、人形、无人机均可。
-  核心关注：locomotion policy learning, sim-to-real transfer, terrain adaptation, navigation。
-  使用 Isaac Lab 训练、MuJoCo Sim2Sim 验证。目标期刊：IEEE RA-L。
+  使用 Isaac Lab 训练、MuJoCo Sim2Sim 验证，并面向实机部署与 IEEE RA-L 论文选题。
 
-  【评分重点】
-  - 首要看发表质量：Science Robotics、TRO、IJRR、RSS、CoRL 的论文，只要与机器人运动/导航/控制相关，都应给高分
-  - 其次看技术深度：方法有创新、实验充分（尤其有实机验证）的给高分
-  - 好文章都有可借鉴之处：即使是纯 MPC、纯感知、无人机，若发在顶级期刊/会议，也值得推荐
 
-  【低分情形（真正不相关）】
-  - 与机器人运动、控制、导航完全无关的论文（如纯 NLP、纯图像生成、医疗、金融）
-  - 操作/抓取任务（除非涉及全身控制或移动操作）
+  【高优先级】
 
-# --- Report Configuration ---
+  - 四足 / 轮足 / 人形 locomotion、whole-body control、gait、rough terrain、contact-rich control
+
+  - 机器人导航、SLAM、visual/lidar odometry、terrain perception、traversability estimation
+
+  - sim-to-real、domain randomization、system identification、deployable robot learning
+
+  - 与机器人感知直接耦合的论文：感知模块必须服务控制、导航、建图、状态估计或部署
+
+
+  【中优先级】
+
+  - 机器人感知/视觉论文，但需明确面向 mobile robot / legged / navigation / autonomy
+
+  - MPC / CBF / classical control，只要与机器人运动控制或导航强相关
+
+
+  【低优先级】
+
+  - 纯 manipulation / grasp / teleoperation / prosthesis / exoskeleton
+
+  - 纯 VLA / embodied agent / 通用视觉表征，如果没有直接落到机器人控制/导航/部署
+
+  - 与机器人弱相关的泛 CV / 泛 AI / 泛 RL 论文
+
+
+  评分时宁可漏掉边缘相关论文，也不要把大量泛 AI/CV 噪声推到日报里。'
 report:
-  # Number of top papers to feature
   top_n: 5
-  # Minimum score to appear in "watch list"
-  watch_threshold: 30
-  # Output directory (relative to repo root)
+  watch_threshold: 35
   output_dir: literature/notes
-  # Intermediate data directory
   data_dir: scripts/data
-
-# --- AI Comment Templates ---
-# Used to generate a one-line comment based on matched keywords
 comment_templates:
-  wheeled-legged: "directly relevant to wheeled-legged robot research"
-  wheel-legged: "directly relevant to wheeled-legged robot research"
-  sim2real: "relevant to sim-to-real transfer pipeline"
-  sim-to-real: "relevant to sim-to-real transfer pipeline"
-  terrain: "relevant to terrain adaptation and traversal"
-  isaac: "uses Isaac Lab/Gym simulation environment"
-  mujoco: "uses MuJoCo simulation environment"
-  locomotion: "relevant to locomotion control"
-  legged: "relevant to legged robot research"
-  bipedal: "relevant to bipedal locomotion"
-  quadruped: "relevant to quadruped robot research"
-  humanoid: "relevant to humanoid robot research"
-  reinforcement learning: "applies RL to robotics"
-  gait: "relevant to gait learning/adaptation"
-  manipulation: "relevant to robot manipulation (not core research direction)"
-  grasp: "relevant to robotic grasping (not core research direction)"
-  vla: "related to vision-language-action models"
-  embodied: "relevant to embodied AI"
-  navigation: "relevant to robot navigation"
-  whole-body: "relevant to whole-body control"
-
-# ===== Zotero Integration =====
+  wheeled-legged: directly relevant to wheeled-legged robot research
+  wheel-legged: directly relevant to wheeled-legged robot research
+  sim2real: relevant to sim-to-real transfer pipeline
+  sim-to-real: relevant to sim-to-real transfer pipeline
+  terrain: relevant to terrain adaptation and traversal
+  isaac: uses Isaac Lab/Gym simulation environment
+  mujoco: uses MuJoCo simulation environment
+  locomotion: relevant to locomotion control
+  legged: relevant to legged robot research
+  bipedal: relevant to bipedal locomotion
+  quadruped: relevant to quadruped robot research
+  humanoid: relevant to humanoid robot research
+  reinforcement learning: applies RL to robotics
+  gait: relevant to gait learning/adaptation
+  manipulation: relevant to robot manipulation (not core research direction)
+  grasp: relevant to robotic grasping (not core research direction)
+  vla: related to vision-language-action models
+  embodied: relevant to embodied AI
+  navigation: relevant to robot navigation
+  whole-body: relevant to whole-body control
 zotero:
   user_id: 15343773
-  api_key_env: ZOTERO_API_KEY   # export ZOTERO_API_KEY=xxx
-  storage_dir: "~/OneDrive/Zotero/storage"
+  api_key_env: ZOTERO_API_KEY
+  storage_dir: ~/OneDrive/Zotero/storage
   use_web_api: true

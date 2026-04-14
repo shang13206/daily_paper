@@ -48,29 +48,55 @@ def _keyword_in_text(keyword: str, text: str) -> bool:
     return bool(re.search(pattern, text))
 
 
+def _matches_any(keywords: list[str], text: str) -> list[str]:
+    """Return all keywords matched in text."""
+    return [kw for kw in keywords if _keyword_in_text(kw, text)]
+
+
 # ---- Layer 1: Keyword Filter ----
 
 def filter_papers(papers: list[dict], config: dict) -> list[dict]:
-    """Discard papers that match exclude keywords AND don't match any include keywords."""
+    """Keep papers only when they fit the user's robotics control/navigation/perception focus."""
     filter_cfg = config["scoring"]["filter"]
     exclude_kws = [kw.lower() for kw in filter_cfg["exclude_keywords"]]
-    include_kws = [kw.lower() for kw in filter_cfg["include_keywords"]]
+    core_include_kws = [kw.lower() for kw in filter_cfg.get("core_include_keywords", [])]
+    perception_kws = [kw.lower() for kw in filter_cfg.get("perception_keywords", [])]
+    robotics_context_kws = [kw.lower() for kw in filter_cfg.get("robotics_context_keywords", [])]
+    require_robotics_context_for_perception = filter_cfg.get(
+        "require_robotics_context_for_perception", True
+    )
+    allow_primary_csro = filter_cfg.get("allow_primary_csro", True)
 
     kept = []
     for paper in papers:
         text = _text_blob(paper)
+        categories = paper.get("categories", [])
+        primary_cat = categories[0] if categories else ""
 
-        has_include = any(_keyword_in_text(kw, text) for kw in include_kws)
-        if has_include:
+        matched_core = _matches_any(core_include_kws, text)
+        matched_perception = _matches_any(perception_kws, text)
+        matched_context = _matches_any(robotics_context_kws, text)
+        has_exclude = any(_keyword_in_text(kw, text) for kw in exclude_kws)
+
+        if matched_core:
             kept.append(paper)
             continue
 
-        has_exclude = any(_keyword_in_text(kw, text) for kw in exclude_kws)
+        if matched_perception and (
+            matched_context or not require_robotics_context_for_perception
+        ):
+            kept.append(paper)
+            continue
+
+        if allow_primary_csro and primary_cat == "cs.RO" and not has_exclude:
+            kept.append(paper)
+            continue
+
         if has_exclude:
             logger.debug(f"Filtered out: {paper['title'][:80]}")
             continue
 
-        kept.append(paper)
+        logger.debug(f"Dropped (weak relevance): {paper['title'][:80]}")
 
     logger.info(
         f"Filter: {len(papers)} -> {len(kept)} papers "
@@ -88,6 +114,10 @@ def keyword_score(paper: dict, config: dict) -> tuple[int, list[str]]:
     mid_weight = scoring_cfg["mid_weight"]
     low_weight = scoring_cfg["low_weight"]
     category_bonus = scoring_cfg.get("category_bonus", {})
+    deprioritize_penalty = scoring_cfg.get("deprioritize_penalty", 0)
+    deprioritize_keywords = [
+        kw.lower() for kw in scoring_cfg.get("filter", {}).get("deprioritize_keywords", [])
+    ]
 
     keyword_groups = [
         (scoring_cfg["keywords"]["high"], high_weight),
@@ -109,7 +139,12 @@ def keyword_score(paper: dict, config: dict) -> tuple[int, list[str]]:
         if cat in category_bonus:
             score += category_bonus[cat]
 
-    return score, matched_keywords
+    for kw in deprioritize_keywords:
+        if _keyword_in_text(kw, text):
+            score -= deprioritize_penalty
+            matched_keywords.append(f"-penalty:{kw}")
+
+    return max(score, 0), matched_keywords
 
 
 # ---- Layer 3: Venue / Institution Bonus ----
