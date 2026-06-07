@@ -17,15 +17,19 @@ import time
 import urllib.request
 import urllib.error
 import urllib.parse
+import pwd
 from datetime import datetime
 from pathlib import Path
 
 # ── Paths ──────────────────────────────────────────────────────────────
-ZOTERO_DIR    = Path(os.path.expanduser("~/Zotero"))
+# Hermes profile runs may set HOME to ~/.hermes/profiles/<profile>/home.
+# Zotero data and the API key live in the real Unix account home.
+REAL_HOME = Path(pwd.getpwuid(os.getuid()).pw_dir)
+ZOTERO_DIR    = REAL_HOME / "Zotero"
 ZOTERO_INDEX  = ZOTERO_DIR / "zotero_index.json"
-ONEDRIVE_STORAGE = Path(os.path.expanduser("~/OneDrive/Zotero/storage"))
+ONEDRIVE_STORAGE = REAL_HOME / "OneDrive/Zotero/storage"
 DATA_DIR      = Path(__file__).resolve().parent / "data"
-API_KEY_FILE  = Path(os.path.expanduser("~/.zotero_api_key"))
+API_KEY_FILE  = REAL_HOME / ".zotero_api_key"
 
 # Zotero Web API
 ZOTERO_USER_ID = 15343773
@@ -42,18 +46,51 @@ logger = logging.getLogger(__name__)
 _COLLECTION_CACHE: dict[str, str] = {}
 
 # ── Collection rules ──────────────────────────────────────────────────
+# Zotero classification is multi-label: platform + task/topic + method + source.
+# IMPORTANT: RSL means ETH Robotic Systems Lab papers, not a generic inbox/default.
 COLLECTION_RULES = [
-    (r"wheeled[-\s]?leg|wheel[-\s]?leg|hybrid.locomotion", "Wheeled-Legged"),
-    (r"humanoid", "Humanoid"),
-    (r"quadruped", "Quadruped"),
-    (r"terrain|parkour|climbing", "Terrain & Parkour"),
-    (r"navigation|planning", "Navigation"),
-    (r"perception|visual|lidar", "Perception"),
-    (r"mpc|model.predictive", "MPC"),
-    (r"sim[-\s]?2[-\s]?real|sim[-\s]?to[-\s]?real", "Sim2Real"),
-    (r"teacher[-\s]?student|distillation", "Teacher-Student"),
+    # Platform axis
+    (r"wheeled[-\s]?leg|wheel[-\s]?leg|hybrid[ -]?locomotion|legged[-\s]?wheel", "Wheeled-Legged"),
+    (r"humanoid|biped", "Humanoid"),
+    (r"quadruped|legged robot|legged locomotion|unitree go2|anymal|go1\b|go2\b", "Quadruped"),
+    (r"quadrotor|uav|aerial|drone", "Aerial"),
+
+    # Task/topic axis
+    (r"terrain|parkour|climb|rough[ -]?terrain|stairs|slope|obstacle", "Terrain & Parkour"),
+    (r"navigat|path planning|motion planning|exploration|slam|locali[sz]ation|mapping", "Navigation"),
+    (r"percept|visual|vision|lidar|depth|camera|heightmap|elevation map", "Perception"),
+    (r"blind locomotion|exteroceptive-free|without vision|vision-free locomotion", "Blind Locomotion"),
+    (r"state estimat|kalman|filtering|odometry|inertial|ekf|ukf", "State Estimation"),
+    (r"representation|latent|memory|recurrent|gru|lstm|world model|terrain encoding|encoder|contrastive|self-supervised", "Memory & Representation"),
+
+    # Method/control axis
+    (r"mpc|model[ -]?predictive|predictive control|control barrier|\bcbf\b", "MPC"),
+    (r"sim[-\s]?2[-\s]?real|sim[-\s]?to[-\s]?real|domain randomi[sz]ation|real[-\s]?world|sim2sim", "Sim2Real"),
+    (r"teacher[-\s]?student|distillation|privileged", "Teacher-Student"),
+    (r"motion prior|mimic|imitation|motion capture|mocap|diffusion", "Mimic & Motion Prior"),
+    (r"gait|style reward|locomotion skill|walking|running", "Gait & Style"),
+    (r"whole[-\s]?body|loco[-\s]?manipulation|manipulation", "Whole-Body Control"),
+    (r"koopman", "Koopman"),
+    (r"multi[-\s]?critic|critic", "Multi Critic"),
+    (r"flow policy|normalizing flow", "Flow Policy"),
+    (r"theory|theoretical|certified|guarantee|contraction", "Theory"),
+    (r"vision[-\s]?language|\bvla\b|large vision-language|vlm", "VLA"),
 ]
-DEFAULT_COLLECTION = "RSL"
+
+SOURCE_RULES = [
+    (r"science robotics", "Science Robotics"),
+    (r"\bcoRL\b|conference on robot learning", "CoRL"),
+    (r"\bicra\b", "ICRA"),
+    (r"\bijrr\b|international journal of robotics research", "IJRR"),
+    (r"\biros\b", "IROS"),
+    (r"\bra-l\b|\bral\b|robotics and automation letters", "RAL"),
+    (r"\brss\b|robotics: science and systems", "RSS"),
+    (r"\btro\b|transactions on robotics", "TRO"),
+]
+
+RSL_RULE = r"\beth( zurich| zürich)?\b|robotic systems lab|\brsl\b|hutter|farshidian|bellicoso|fankhauser|miki|lee, joonho|rudin"
+DEFAULT_COLLECTION = ""
+NEEDS_REVIEW_TAG = "needs-review"
 
 
 # ── API helpers ────────────────────────────────────────────────────────
@@ -128,17 +165,64 @@ def fetch_collections(api_key: str) -> dict[str, str]:
 
 
 # ── Collection mapping ─────────────────────────────────────────────────
-def map_collection(paper: dict) -> str:
-    text = " ".join([
+def _paper_text(paper: dict) -> str:
+    authors = paper.get("authors", [])
+    author_text = " ".join(
+        a if isinstance(a, str) else " ".join(str(v) for v in a.values())
+        for a in authors
+    )
+    return " ".join([
         paper.get("title", ""),
         paper.get("abstract", ""),
+        paper.get("comment", ""),
+        paper.get("venue", ""),
+        author_text,
         " ".join(paper.get("matched_keywords", [])),
+        " ".join(paper.get("matched_institutions", [])),
         " ".join(paper.get("categories", [])),
-    ]).lower()
+    ])
+
+
+def _append_unique(items: list[str], value: str):
+    if value and value not in items:
+        items.append(value)
+
+
+def map_collections(paper: dict) -> list[str]:
+    """Return ordered Zotero collection names for a paper.
+
+    RSL is reserved for ETH Robotic Systems Lab papers. Empty result means
+    "no confident collection"; callers should add NEEDS_REVIEW_TAG rather
+    than falling back to RSL.
+    """
+    text = _paper_text(paper)
+    collections: list[str] = []
+
     for pattern, collection in COLLECTION_RULES:
         if re.search(pattern, text, re.IGNORECASE):
-            return collection
-    return DEFAULT_COLLECTION
+            _append_unique(collections, collection)
+
+    # Source/venue axis. Use venue/comment/matched_venue if available.
+    source_text = " ".join([
+        paper.get("venue", ""),
+        paper.get("comment", ""),
+        str(paper.get("matched_venue", "")),
+    ])
+    for pattern, collection in SOURCE_RULES:
+        if re.search(pattern, source_text, re.IGNORECASE):
+            _append_unique(collections, collection)
+
+    # ETH RSL lab axis, not a default collection.
+    if re.search(RSL_RULE, text, re.IGNORECASE):
+        _append_unique(collections, "RSL")
+
+    return collections
+
+
+def map_collection(paper: dict) -> str:
+    """Backward-compatible single-label mapper: first label or empty."""
+    mapped = map_collections(paper)
+    return mapped[0] if mapped else DEFAULT_COLLECTION
 
 
 # ── Index helpers ──────────────────────────────────────────────────────
@@ -392,18 +476,23 @@ def process_paper(paper: dict, index: list, api_key: str, dry_run: bool = False)
         logger.info(f"[SKIP] Already in library: {title[:60]}")
         return None
 
-    collection_name = map_collection(paper)
-    logger.info(f"📁 Collection: {collection_name}")
+    collection_names = map_collections(paper)
+    collection_label = ", ".join(collection_names) if collection_names else "(none; needs review)"
+    logger.info(f"📁 Collections: {collection_label}")
 
     if dry_run:
         logger.info(f"[DRY RUN] Would add: {title[:60]}")
-        return {"title": title, "arxiv_id": arxiv_id, "collection": collection_name}
+        return {"title": title, "arxiv_id": arxiv_id, "collections": collection_names}
 
-    # Fetch collection key
+    # Fetch collection keys
     collections = fetch_collections(api_key)
-    col_key = collections.get(collection_name, collections.get(DEFAULT_COLLECTION, ""))
-    if not col_key:
-        logger.warning(f"Collection '{collection_name}' not found, using no collection")
+    collection_keys = []
+    for name in collection_names:
+        key = collections.get(name)
+        if key:
+            collection_keys.append(key)
+        else:
+            logger.warning(f"Collection '{name}' not found, skipping it")
 
     # Build Zotero item
     authors = paper.get("authors", [])
@@ -434,7 +523,7 @@ def process_paper(paper: dict, index: list, api_key: str, dry_run: bool = False)
         "url": paper.get("abs_url", f"https://arxiv.org/abs/{arxiv_id}"),
         "date": paper.get("published_date", paper.get("updated_date", "")),
         "extra": "\n".join(extra_lines),
-        "collections": [col_key] if col_key else [],
+        "collections": collection_keys,
     }
 
     # Write to Zotero Web API
@@ -476,7 +565,7 @@ def process_paper(paper: dict, index: list, api_key: str, dry_run: bool = False)
             logger.info(f"PDF still saved locally at: {pdf_path}")
 
     # Generate reading note
-    note_path = generate_note(paper, collection_name, storage_dir)
+    note_path = generate_note(paper, collection_label, storage_dir)
 
     # Update local index
     entry = {
@@ -487,8 +576,8 @@ def process_paper(paper: dict, index: list, api_key: str, dry_run: bool = False)
         "doi": "",
         "url": zotero_item["url"],
         "arxiv_id": arxiv_id,
-        "collections": [collection_name],
-        "tags": ["cs.RO", "/unread"],
+        "collections": collection_names,
+        "tags": ["cs.RO", "/unread"] + ([] if collection_names else [NEEDS_REVIEW_TAG]),
         "dateAdded": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "abstract": paper.get("abstract", "")[:200],
         "venue": venue,
@@ -497,7 +586,7 @@ def process_paper(paper: dict, index: list, api_key: str, dry_run: bool = False)
     save_index(index)
 
     print(f"✅ 已入库: {title[:60]}")
-    print(f"   📁 Collection: {collection_name}")
+    print(f"   📁 Collections: {collection_label}")
     if pdf_path:
         print(f"   📄 PDF: {pdf_path}")
     if note_path:
