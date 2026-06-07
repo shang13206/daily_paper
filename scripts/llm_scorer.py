@@ -3,8 +3,11 @@
 
 import json
 import logging
+import re
+import shlex
 import subprocess
 import sys
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +45,75 @@ Respond with ONLY valid JSON, no markdown fences, no extra text:
     return prompt
 
 
+def _extract_json_object(output: str) -> dict:
+    """Extract the first JSON object from CLI output.
+
+    Hermes CLI prints a `session_id: ...` line before the model response in
+    gateway-friendly mode, while Claude may wrap JSON in markdown fences.  The
+    scorer should accept both instead of treating useful output as failure.
+    """
+    output = output.strip()
+
+    if "```" in output:
+        blocks = re.findall(r"```(?:json)?\s*(.*?)```", output, flags=re.S | re.I)
+        for block in blocks:
+            try:
+                return json.loads(block.strip())
+            except json.JSONDecodeError:
+                continue
+
+    try:
+        return json.loads(output)
+    except json.JSONDecodeError:
+        pass
+
+    decoder = json.JSONDecoder()
+    for match in re.finditer(r"\{", output):
+        try:
+            obj, _ = decoder.raw_decode(output[match.start():])
+            if isinstance(obj, dict):
+                return obj
+        except json.JSONDecodeError:
+            continue
+    raise json.JSONDecodeError("No JSON object found in LLM output", output, 0)
+
+
+def _build_command(
+    prompt: str,
+    claude_command: str,
+    claude_flags: str,
+    model: str,
+) -> list[str]:
+    """Build either a Claude CLI command or a Hermes CLI command.
+
+    Historical config used Claude Code (`claude --model sonnet ... -p`).  On
+    this machine Claude Code is installed but not logged in, while Hermes is
+    authenticated.  If `claude_command` is set to `hermes`, pass the prompt as
+    the final argument to the configured `-q` flag and do not inject Claude-only
+    `--model` syntax.
+    """
+    cmd_parts = [claude_command]
+    flags = shlex.split(claude_flags or "")
+    executable = Path(claude_command).name
+
+    if executable == "hermes":
+        cmd_parts.extend(flags)
+        if model:
+            # `hermes chat` accepts -m/--model after the `chat` subcommand.
+            try:
+                chat_idx = cmd_parts.index("chat")
+                cmd_parts[chat_idx + 1:chat_idx + 1] = ["--model", model]
+            except ValueError:
+                cmd_parts.extend(["--model", model])
+        cmd_parts.append(prompt)
+    else:
+        if model:
+            cmd_parts.extend(["--model", model])
+        cmd_parts.extend(flags)
+        cmd_parts.extend(["-p", prompt])
+    return cmd_parts
+
+
 def score_batch_with_llm(
     papers: list[dict],
     research_profile: str,
@@ -49,55 +121,35 @@ def score_batch_with_llm(
     claude_flags: str = "--permission-mode bypassPermissions --print",
     model: str = "sonnet",
 ) -> list[dict]:
-    """Score a batch of papers using Claude CLI.
+    """Score a batch of papers using a local LLM CLI.
 
     Returns a list of {"paper_index": int, "score": int, "comment": str} dicts.
     Returns empty list on failure.
     """
     prompt = build_prompt(papers, research_profile)
-
-    cmd_parts = [claude_command]
-    if model:
-        cmd_parts.extend(["--model", model])
-    cmd_parts.extend(claude_flags.split())
-    cmd_parts.extend(["-p", prompt])
+    cmd_parts = _build_command(prompt, claude_command, claude_flags, model)
 
     try:
-        logger.info(f"Calling Claude CLI for {len(papers)} papers...")
+        logger.info(f"Calling LLM CLI for {len(papers)} papers via {claude_command}...")
         result = subprocess.run(
             cmd_parts,
             capture_output=True,
             text=True,
-            timeout=120,
+            timeout=180,
         )
 
         if result.returncode != 0:
-            logger.error(f"Claude CLI failed (exit {result.returncode}): {result.stderr[:500]}")
+            stderr = (result.stderr or result.stdout or "")[:500]
+            logger.error(f"LLM CLI failed (exit {result.returncode}): {stderr}")
             return []
 
-        output = result.stdout.strip()
-
-        # Try to extract JSON from the output (handle markdown fences if present)
-        if "```" in output:
-            # Extract content between ``` markers
-            lines = output.split("\n")
-            json_lines = []
-            in_block = False
-            for line in lines:
-                if line.strip().startswith("```"):
-                    in_block = not in_block
-                    continue
-                if in_block:
-                    json_lines.append(line)
-            output = "\n".join(json_lines)
-
-        parsed = json.loads(output)
+        parsed = _extract_json_object(result.stdout)
         results = parsed.get("results", [])
         logger.info(f"LLM returned {len(results)} scores")
         return results
 
     except subprocess.TimeoutExpired:
-        logger.error("Claude CLI timed out")
+        logger.error("LLM CLI timed out")
         return []
     except json.JSONDecodeError as e:
         logger.error(f"Failed to parse LLM output as JSON: {e}")

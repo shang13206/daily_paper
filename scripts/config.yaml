@@ -316,10 +316,12 @@ scoring:
 llm:
   enable_llm_scoring: true
   llm_score_threshold: 18
-  batch_size: 5
-  claude_command: claude
-  claude_flags: --permission-mode bypassPermissions --print
-  model: sonnet
+  batch_size: 10
+  # Claude Code is installed on this machine but currently not logged in.
+  # Use the authenticated Hermes CLI as the scorer backend instead.
+  claude_command: hermes
+  claude_flags: --profile paperlib chat -Q --toolsets safe -q
+  model: ''
 research_profile: '研究方向：机器人运动控制、导航与感知的一体化系统，核心项目是 OmniBot（轮足/四足机器人），重点关注 locomotion
   policy learning、terrain adaptation、state estimation、navigation、sim-to-real / sim2sim。
 
