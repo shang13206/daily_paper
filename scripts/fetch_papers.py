@@ -32,6 +32,17 @@ ARXIV_NS = "{http://arxiv.org/schemas/atom}"
 DEFAULT_USER_AGENT = "DailyPaperBot/1.0 (Hermes Agent; research use)"
 
 
+def _canonical_arxiv_id(arxiv_id: str) -> str:
+    """Return arXiv ID without version suffix for de-duplicating sources.
+
+    arXiv API entries normally include a version suffix (e.g. 2606.12397v1),
+    while HTML list parsing yields the base ID (2606.12397).  The same paper can
+    otherwise appear twice in one fetched file when one category falls back to
+    HTML and another succeeds via the API.
+    """
+    return re.sub(r"v\d+$", "", arxiv_id.strip())
+
+
 def load_config(config_path: str = None) -> dict:
     if config_path is None:
         config_path = Path(__file__).parent / "config.yaml"
@@ -304,7 +315,7 @@ def fetch_arxiv_papers(
                         timeout=timeout,
                     )
                     for paper in fallback_papers:
-                        arxiv_id = paper["arxiv_id"]
+                        arxiv_id = _canonical_arxiv_id(paper["arxiv_id"])
                         if arxiv_id in all_papers:
                             existing_cats = set(all_papers[arxiv_id]["categories"])
                             existing_cats.update(paper["categories"])
@@ -348,7 +359,7 @@ def fetch_arxiv_papers(
                     continue
                 elif ann_dt >= start_date:
                     # Paper falls within the target date range [start_date, target]
-                    arxiv_id = paper["arxiv_id"]
+                    arxiv_id = _canonical_arxiv_id(paper["arxiv_id"])
                     if arxiv_id in all_papers:
                         existing_cats = set(all_papers[arxiv_id]["categories"])
                         existing_cats.update(paper["categories"])

@@ -2,90 +2,55 @@
 
 ## 🏆 精选论文 (Top 5)
 
-### 1. GUIDE: Goal-Initialized Directional Understanding for End-to-End Visual Navigation
-- **Score:** 87
+### 1. Redesigning Regularization for Effective Policy Smoothing
+- **Score:** 75
 - **Categories:** cs.RO
-- **Abstract:** Learning-based visual navigation for legged robots typically relies on continuous goal updates from hierarchical state estimation to provide a persistent directional reference. This reliance incurs additional sensory and computational overhead and deviates from fully end-to-end mobile autonomy. Furthermore, under partial observability, policies are prone to learn myopic behaviors, easily becoming trapped in dead ends and complex structural layouts.
-- **AI 点评:** 四足机器人端到端视觉导航、深度感知、强化学习、实机部署和长时空间记忆均高度契合OmniBot导航-运动一体化方向。
-- 📄 [arXiv](https://arxiv.org/abs/2606.10832v1) | 📥 [PDF](https://arxiv.org/pdf/2606.10832v1)
+- **Venue:** RA-L
+- **Abstract:** This paper proposes a novel regularization design to effectively smooth policy functions in reinforcement learning. While regularization that enhances ``global'' Lipschitz continuity was initially considered, it has been limited to ``local'' Lipschitz continuity due to a tradeoff between smoothness and expressiveness. However, it has become apparent that the original implementation is cumbersome and does not provide sufficient smoothing, leading to a preference for simpler implementations.
+- **AI 点评:** 直接研究 RL policy smoothing 并应用于四足机器人 sim-to-real，提高运动平滑性和速度突变鲁棒性，契合 locomotion policy learning。
+- 📄 [arXiv](https://arxiv.org/abs/2606.13169v1) | 📥 [PDF](https://arxiv.org/pdf/2606.13169v1)
 
 ---
 
-### 2. Mind Your Steps: A General Learning Framework for Accurate Humanoid Foothold Tracking
-- **Score:** 87
-- **Categories:** cs.RO, cs.LG
-- **Venue:** RSS
-- **Abstract:** Enabling humanoid robots to operate in complex, dynamic environments remains a critical challenge, fundamentally limited by the ability to navigate robustly, safely, and accurately. While reinforcement learning with velocity-commanded policies has achieved remarkable robustness in humanoid locomotion, this approach lacks explicit control of the foothold placement, leading to unsafe behavior, such as stepping onto human feet, or imprecise navigation, hindering the following manipulation task.
-- **AI 点评:** 直接面向人形机器人 foothold tracking、真实部署、状态估计噪声鲁棒和高低层规划接口，对腿足 locomotion 与导航控制高度相关。
-- 📄 [arXiv](https://arxiv.org/abs/2606.08253) | 📥 [PDF](https://arxiv.org/pdf/2606.08253.pdf)
+### 2. NavWAM: A Navigation World Action Model for Goal-Conditioned Visual Navigation
+- **Score:** 72
+- **Categories:** cs.RO, cs.CV
+- **Abstract:** Goal-conditioned visual navigation requires a robot to act under partial observability by anticipating how its motion will change the future egocentric view and whether that change brings it closer to the goal. Navigation world models provide such visual foresight, but they remain prediction modules that require an external planner to convert predicted futures into closed-loop control.
+- **AI 点评:** 视觉导航世界模型直接转化为闭环机器人控制，并含仿真预训练与实机适配，和导航-感知-控制一体化高度相关。
+- 📄 [arXiv](https://arxiv.org/abs/2606.13494v1) | 📥 [PDF](https://arxiv.org/pdf/2606.13494v1)
 
 ---
 
-### 3. GuideWalk: Learning Unified Autonomous Navigation and Locomotion for Humanoid Robots across Versatile Terrains
-- **Score:** 71
+### 3. Proprioceptive-visual correspondence enables self-other distinction in humanoid robots
+- **Score:** 45
+- **Categories:** cs.AI, cs.RO
+- **Abstract:** Distinguishing self from others is a prerequisite for social intelligence, yet humanoid robots that increasingly share workspaces with humans still lack this ability. Here we show that a humanoid robot can learn self-other distinction from proprioceptive-visual correspondence, without any identity labels or kinematic models.
+- **AI 点评:**  humanoid 自我建模可支持碰撞感知规划和运动规划，但重点偏自他区分与人形社交场景，非核心 locomotion/导航。
+- 📄 [arXiv](https://arxiv.org/abs/2606.13222v1) | 📥 [PDF](https://arxiv.org/pdf/2606.13222v1)
+
+---
+
+### 4. Y-BotFrame: An Extensible Embodied Agent Framework for Quadruped Robot Assistants
+- **Score:** 41
 - **Categories:** cs.RO
-- **Abstract:** Humanoid robots have achieved strong locomotion capabilities, but reliable navigation on versatile terrains remains challenging because obstacle avoidance must be coordinated with dynamically feasible motion. In this work, we present GuideWalk, a unified end-to-end framework that integrates traversability-aware navigation guidance with terrain-adaptive locomotion teacher for humanoid navigation.
-- **AI 点评:** 统一导航与地形自适应 locomotion 的 humanoid 框架高度契合感知-导航-控制一体化研究。
-- 📄 [arXiv](https://arxiv.org/abs/2606.10449v1) | 📥 [PDF](https://arxiv.org/pdf/2606.10449v1)
+- **Abstract:** Quadruped robots are capable of traversing a wide range of complex terrains with high flexibility. As highly mobile ground-based intelligent platforms, they can be equipped with modules for navigation control, environmental perception, and intelligent interaction, thereby serving as real-world mobile deployment platforms for various algorithms. In this paper, we introduce Y-BotFrame, an extensible embodied platform that turns a robot into an intelligent ground assistant.
+- **AI 点评:** 基于四足机器人的具身助手框架包含导航、感知和实机部署，但核心偏 LLM 任务规划与交互，不是 locomotion policy 学习。
+- 📄 [arXiv](https://arxiv.org/abs/2606.13049v1) | 📥 [PDF](https://arxiv.org/pdf/2606.13049v1)
 
 ---
 
-### 4. Critic Architecture Matters: Dual vs. Unified Critics for Humanoid Loco-Manipulation
-- **Score:** 69
-- **Categories:** cs.RO, cs.LG
-- **Venue:** ICRA
-- **Abstract:** Multi-objective reinforcement learning for humanoid robots must coordinate locomotion and manipulation within a single policy. A natural design choice is whether to use a single (unified) critic that estimates the combined value of all objectives, or separate (dual) critics with disjoint reward signals.
-- **AI 点评:** 在人形机器人Isaac Lab中研究locomotion-manipulation多目标RL critic结构，虽非轮足但与全身控制、RL训练和策略设计高度相关。
-- 📄 [arXiv](https://arxiv.org/abs/2606.11891) | 📥 [PDF](https://arxiv.org/pdf/2606.11891.pdf)
-
----
-
-### 5. Locomotion analysis of a quadruped interacting with the lunar granular surface
-- **Score:** 69
+### 5. Embedding ISO 10218 Safety Compliance in Robots via Control Barrier Functions for Human-Robot Collaboration
+- **Score:** 33
 - **Categories:** cs.RO
-- **Abstract:** Deploying legged robots in extra-terrestrial environments includes many challenges due to complex terrain interactions, energy, and thermal constraints. For effective mechanical design of a lunar exploration quadrupedal robot, careful consideration of motor torques, energy expenditure, and cost of transport is required. The lunar surface is composed of granular regolith, which impacts the locomotion of legged robots and their performance.
-- **AI 点评:** 四足机器人在月壤软接触地形上的 RL locomotion 与 terrain adaptation/sim2sim 分析高度相关。
-- 📄 [arXiv](https://arxiv.org/abs/2606.10273v1) | 📥 [PDF](https://arxiv.org/pdf/2606.10273v1)
+- **Abstract:** Human-Robot Collaboration (HRC) requires strict adherence to safety standards, such as ISO 10218, to prevent harmful interactions. Standard Speed and Separation Monitoring (SSM) filters calculate safe robotic speeds based on conservative assumptions, such as constant human velocity, which prevents accurate predictions of minimum separation distances and causes unnecessary operational halts.
+- **AI 点评:** CBF 安全控制与真实机器人实验相关，但对象是协作机械臂安全合规，和轮足/四足运动控制关系较弱。
+- 📄 [arXiv](https://arxiv.org/abs/2606.13203v1) | 📥 [PDF](https://arxiv.org/pdf/2606.13203v1)
 
 ---
 
 ## 👀 值得关注 (Score >= 35 的其余论文)
 
-- **MARCH: Model-Assisted Reinforcement Learning for the Perceptive Control of Humanoids over Sparse Footholds** (Score: 69) [Link](https://arxiv.org/abs/2606.10288v1)
-- **AgniNav: Configuration-Driven Cross-Embodiment Local Planning for Robot Navigation** (Score: 66) [Link](https://arxiv.org/abs/2606.10903v1)
-- **Critic Architecture Matters: Dual vs. Unified Critics for Humanoid Loco-Manipulation** (Score: 66) [ICRA] [Link](https://arxiv.org/abs/2606.11891v1)
-- **KinematicRL: A Sim-to-Real Reinforcement Learning Framework For Social Navigation With Kinodynamic Feasibility** (Score: 64) [Link](https://arxiv.org/abs/2606.12042v1)
-- **Information-Preserving Continuous Occupancy Mapping with Variance-Weighted Submap Joining** (Score: 62) [Link](https://arxiv.org/abs/2606.10442v1)
-- **Explore From Sketch: Accelerating UAV Exploration in Large-scale Environments with Prior Maps** (Score: 58) [Link](https://arxiv.org/abs/2606.11708v1)
-- **A Distributed Multi-UGV Exploration Framework With Loop-Aware Planning and Descriptor-Aided Localization in Resource-Limited Environments** (Score: 57) [Link](https://arxiv.org/abs/2606.11088v1)
-- **Cross-Modal Benchmarking for Robotic Perception in Natural Environments** (Score: 56) [ICRA] [Link](https://arxiv.org/abs/2606.11563v1)
-- **OMG: Omni-Modal Motion Generation for Generalist Humanoid Control** (Score: 55) [Link](https://arxiv.org/abs/2606.10340v1)
-- **SAFER-Nav: Enhancing Safety for Visual Robot Navigation via Segmentation-Aware Fine-Tuning** (Score: 55) [Link](https://arxiv.org/abs/2606.11636v1)
-- **Globally Localizing Lunar Rover in Pixels via Graph Alignment** (Score: 51) [Link](https://arxiv.org/abs/2606.10602v1)
-- **IR-SIM: A Lightweight Skill-Native Simulator for Navigation, Learning, and Benchmarking** (Score: 49) [Link](https://arxiv.org/abs/2606.08729)
-- **Resilient Navigation for Autonomous Farm Robots by Leveraging Jerk-Augmented Models with IMU-Only Disturbance Rejection** (Score: 49) [Link](https://arxiv.org/abs/2606.10971v1)
-- **A Spiking Neural Architecture for Coordinating Arm and Locomotor Control** (Score: 47) [Link](https://arxiv.org/abs/2606.11034v1)
-- **Towards End to End Motion Planning and Execution for Autonomous Underwater Vehicles Using Reinforcement Learning** (Score: 47) [Link](https://arxiv.org/abs/2606.08513)
-- **Bridging the sim2real gap in the table tennis robot with a transformer-based ball states predictor** (Score: 46) [Link](https://arxiv.org/abs/2606.11464v1)
-- **Steering Multirobot Behavior via Closed-Loop Affine Activation Editing** (Score: 46) [Link](https://arxiv.org/abs/2606.11489v1)
-- **Autonomous Aerial Manipulation via Contextual Contrastive Meta Reinforcement Learning** (Score: 43) [Link](https://arxiv.org/abs/2606.08533)
-- **LieIPM: Lie Group Interior Point Method for Direct Trajectory Optimization of Rigid Bodies** (Score: 43) [Link](https://arxiv.org/abs/2606.10579v1)
-- **UGV-Conditioned Multi-UAV Informative Planning on a Shared Exposure Belief** (Score: 43) [Link](https://arxiv.org/abs/2606.12306v1)
-- **Vehicle Prediction Model for Enhanced MPC Path Tracking in Formula Student Driverless** (Score: 43) [Link](https://arxiv.org/abs/2606.10732v1)
-- **Planar-Sector LOS Guidance for Interception of Agile Targets with Lifting-Wing Quadcopters** (Score: 42) [ICRA] [Link](https://arxiv.org/abs/2606.10639v2)
-- **Learning Unions of Convex Sets via Invertible Latent Decomposition for Path Planning** (Score: 41) [Link](https://arxiv.org/abs/2606.12027v1)
-- **Rethinking Embodied Navigation via Relational Inductive Bias** (Score: 41) [Link](https://arxiv.org/abs/2606.10348v1)
-- **SG2Loc: Sequential Visual Localization on 3D Scene Graphs** (Score: 41) [Link](https://arxiv.org/abs/2606.11880v1)
-- **Fibration Trees: A Unified Approach to Multi-Robot Motion Planning** (Score: 40) [Link](https://arxiv.org/abs/2606.12070v1)
-- **Implicit Neural Representations of Individual Behavior** (Score: 40) [ICML] [Link](https://arxiv.org/abs/2606.12200)
-- **Implicit Neural Representations of Individual Behavior** (Score: 40) [ICML] [Link](https://arxiv.org/abs/2606.12200v1)
-- **A Modular Dual-Camera Pipeline for Micro-Inspection Using Aerial Robots** (Score: 38) [Link](https://arxiv.org/abs/2606.11419v1)
-- **Difference-Aware Retrieval Policies for Imitation Learning** (Score: 38) [ICLR] [Link](https://arxiv.org/abs/2606.09758)
-- **Multi-UAV Active Sensing with Information Gain-based Planning and Belief Fusion** (Score: 38) [Link](https://arxiv.org/abs/2606.10986v1)
-- **Ambient Diffusion Policy: Imitation Learning from Suboptimal Data in Robotics** (Score: 37) [Link](https://arxiv.org/abs/2606.12365v1)
-- **MPPI-based Informative Trajectory Planning for Search and Capture of Drifting Targets with ASVs** (Score: 37) [Link](https://arxiv.org/abs/2606.12019v1)
-- **MODIP: Efficient Model-Based Optimization for Diffusion Policies** (Score: 36) [Link](https://arxiv.org/abs/2606.10825)
-- **PAWS: Preference Learning with Advantage-Weighted Segments** (Score: 36) [ICML] [Link](https://arxiv.org/abs/2606.11982)
+_今日无其他值得关注论文_
 
 ## 📊 今日统计
-- 总抓取: 1485 篇 | 通过初筛: 197 篇 | 精选: 5 篇 (含 LLM 精筛)
+- 总抓取: 220 篇 | 通过初筛: 33 篇 | 精选: 5 篇 (含 LLM 精筛)

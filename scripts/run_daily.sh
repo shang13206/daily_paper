@@ -12,7 +12,7 @@ DATA_DIR="$SCRIPT_DIR/data"
 # Parse arguments
 TARGET_DATE=""
 NO_LLM=""
-DAYS=3   # Default: fetch last 3 days
+DAYS=1   # Default: fetch only the target arXiv day to avoid repeated daily picks
 
 for arg in "$@"; do
     case "$arg" in
