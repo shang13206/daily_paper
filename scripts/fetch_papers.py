@@ -216,6 +216,7 @@ def _fetch_via_html_fallback(
     start_date: datetime,
     target: datetime,
     timeout: int,
+    enrich_abstracts: bool = False,
 ) -> list[dict]:
     """Fallback when export.arxiv.org API is blocked or rate-limited."""
     list_url = ARXIV_LIST_URL_TEMPLATE.format(category=category)
@@ -230,6 +231,13 @@ def _fetch_via_html_fallback(
         candidates.extend(_extract_articles_from_list_section(section_html, category, updated_date))
 
     logger.info(f"HTML fallback found {len(candidates)} candidate papers for {category}")
+
+    if not enrich_abstracts:
+        logger.info(
+            "HTML fallback abstract enrichment disabled; returning list metadata only "
+            f"for {len(candidates)} {category} papers"
+        )
+        return candidates
 
     enriched = []
     for idx, paper in enumerate(candidates, 1):
