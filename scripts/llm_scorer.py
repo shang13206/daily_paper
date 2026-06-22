@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""LLM-based paper scoring via Claude CLI subprocess."""
+"""LLM-based paper scoring via local CLI subprocess."""
 
 import json
 import logging
@@ -84,13 +84,12 @@ def _build_command(
     claude_flags: str,
     model: str,
 ) -> list[str]:
-    """Build either a Claude CLI command or a Hermes CLI command.
+    """Build the configured LLM CLI command.
 
     Historical config used Claude Code (`claude --model sonnet ... -p`).  On
-    this machine Claude Code is installed but not logged in, while Hermes is
-    authenticated.  If `claude_command` is set to `hermes`, pass the prompt as
-    the final argument to the configured `-q` flag and do not inject Claude-only
-    `--model` syntax.
+    this machine the scorer has also used Hermes and Codex.  Each CLI accepts
+    prompts and model flags in a different place, so keep their command shapes
+    explicit instead of forcing everything through Claude's `-p` syntax.
     """
     cmd_parts = [claude_command]
     flags = shlex.split(claude_flags or "")
@@ -105,6 +104,16 @@ def _build_command(
                 cmd_parts[chat_idx + 1:chat_idx + 1] = ["--model", model]
             except ValueError:
                 cmd_parts.extend(["--model", model])
+        cmd_parts.append(prompt)
+    elif executable == "codex":
+        cmd_parts.extend(flags)
+        if "exec" not in cmd_parts[1:]:
+            cmd_parts.insert(1, "exec")
+        if model:
+            # `codex exec` expects options after the subcommand and before
+            # the prompt.
+            exec_idx = cmd_parts.index("exec")
+            cmd_parts[exec_idx + 1:exec_idx + 1] = ["--model", model]
         cmd_parts.append(prompt)
     else:
         if model:
