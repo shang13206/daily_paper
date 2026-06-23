@@ -200,6 +200,43 @@ def venue_institution_bonus(paper: dict, config: dict) -> tuple[int, str, list[s
     return bonus, matched_venue, matched_institutions
 
 
+def algorithmic_contribution_adjustment(
+    paper: dict, config: dict, matched_keywords: list[str]
+) -> tuple[int, list[str]]:
+    """Return score adjustment for weak algorithmic contribution signals.
+
+    System/deployment papers are useful context, but they should not outrank
+    method papers unless the abstract/title clearly signals a new policy,
+    representation, planner, estimator, reward, or similar algorithmic
+    contribution.
+    """
+    adjustment_cfg = config["scoring"].get("algorithmic_adjustment", {})
+    if not adjustment_cfg:
+        return 0, []
+
+    text = _text_blob(paper)
+    system_hits = _matches_any(adjustment_cfg.get("system_demo_keywords", []), text)
+    algorithmic_hits = _matches_any(adjustment_cfg.get("algorithmic_keywords", []), text)
+
+    delta = 0
+    adjustments = []
+
+    if system_hits and not algorithmic_hits:
+        penalty = int(adjustment_cfg.get("system_demo_penalty", 0))
+        if penalty > 0:
+            delta -= penalty
+            adjustments.append(f"system_demo_without_algorithmic_signal:-{penalty}")
+
+    topical_hits = [kw for kw in matched_keywords if not kw.startswith("-penalty:")]
+    if not topical_hits:
+        penalty = int(adjustment_cfg.get("weak_relevance_penalty", 0))
+        if penalty > 0:
+            delta -= penalty
+            adjustments.append(f"weak_relevance_without_topic_signal:-{penalty}")
+
+    return delta, adjustments
+
+
 # ---- Layer 4: LLM Scoring ----
 
 def llm_score_papers(papers: list[dict], config: dict) -> dict:
@@ -236,7 +273,10 @@ def score_papers(papers: list[dict], config: dict, enable_llm: bool = True) -> l
         # Layer 3: venue/institution bonus
         vi_bonus, matched_venue, matched_institutions = venue_institution_bonus(paper, config)
 
-        rule_score = min(kw_score + vi_bonus, 100)
+        algorithmic_delta, score_adjustments = algorithmic_contribution_adjustment(
+            paper, config, matched_keywords
+        )
+        rule_score = max(min(kw_score + vi_bonus + algorithmic_delta, 100), 0)
 
         # Generate rule-based comment
         rule_comment = _generate_comment(matched_keywords, comment_templates)
@@ -249,6 +289,7 @@ def score_papers(papers: list[dict], config: dict, enable_llm: bool = True) -> l
             "matched_keywords": matched_keywords,
             "matched_venue": matched_venue,
             "matched_institutions": matched_institutions,
+            "score_adjustments": score_adjustments,
             "ai_comment": rule_comment,
             "llm_score": None,
             "llm_comment": None,

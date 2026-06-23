@@ -312,7 +312,47 @@ scoring:
     - Technical University of Munich
     - KAIST
     - University of Tokyo
-  deprioritize_penalty: 8
+  deprioritize_penalty: 12
+  algorithmic_adjustment:
+    system_demo_penalty: 12
+    weak_relevance_penalty: 16
+    system_demo_keywords:
+    - long-distance
+    - long-range
+    - field experiment
+    - field experiments
+    - commercially available
+    - real-world deployment
+    - deployment
+    - integrated system
+    - case study
+    - challenge
+    - demonstrate autonomous
+    - demonstrates autonomous
+    - public road
+    algorithmic_keywords:
+    - we propose
+    - proposed method
+    - novel
+    - algorithm
+    - architecture
+    - representation
+    - latent
+    - encoder
+    - policy architecture
+    - policy learning
+    - reward function
+    - reward design
+    - planner
+    - estimator
+    - world model
+    - teacher-student
+    - distillation
+    - privileged
+    - contrastive
+    - adaptation
+    - uncertainty
+    - dynamics model
 llm:
   enable_llm_scoring: true
   llm_score_threshold: 18
