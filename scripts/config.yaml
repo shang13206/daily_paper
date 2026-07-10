@@ -426,3 +426,106 @@ zotero:
   api_key_env: ZOTERO_API_KEY
   storage_dir: ~/OneDrive/Zotero/storage
   use_web_api: true
+sop:
+  version: paper-evaluation-sop-v1
+  thresholds: {selected: 8.0, watch: 5.0}
+  venue:
+    tier1:
+      score: 10
+      terms: [ICRA, IROS, RSS, CoRL, TRO, Science Robotics]
+    tier2:
+      score: 5
+      terms: [NeurIPS, ICLR, ICML, CVPR, ECCV, ICCV, SIGGRAPH, AAAI]
+  institution:
+    cold_start_min_papers: 3
+    default_score: 1
+    seed_score: 8
+    seed_names:
+    - MIT
+    - Stanford
+    - UC Berkeley
+    - CMU
+    - ETH Zurich
+    - Google DeepMind
+    - NVIDIA
+    - Meta FAIR
+    weights:
+      frequency: 0.30
+      venue_quality: 0.25
+      code_rate: 0.20
+      hardware_rate: 0.25
+  keywords:
+    core:
+      score: 5
+      terms:
+      - humanoid
+      - legged robot
+      - quadruped
+      - bipedal
+      - locomotion
+      - whole-body control
+      - dexterous manipulation
+      - robot learning
+      - robot policy
+      - embodied AI
+      - diffusion policy
+      - flow matching
+      - flow policy
+      - sim-to-real
+    related:
+      score: 3
+      terms:
+      - manipulation
+      - grasping
+      - robot navigation
+      - imitation learning
+      - behavior cloning
+      - VLA
+      - world model
+      - reinforcement learning
+      - motion planning
+      - parkour
+      - agile
+      - terrain
+      robotics_context_terms:
+      - robot
+      - robotic
+      - locomotion
+      - navigation
+      - quadruped
+      - bipedal
+      - humanoid
+      - manipulation
+    general:
+      score: 1
+      terms:
+      - robot
+      - embodied
+      - control policy
+      - physical simulation
+      - IsaacGym
+      - Isaac Lab
+      - MuJoCo
+  hardware:
+    score: 4
+    min_distinct_evidence: 2
+    terms:
+    - real robot
+    - real-world
+    - hardware experiment
+    - physical robot
+    - deployed on
+    - real-world deployment
+    - physical experiment
+    - Unitree
+    - Franka
+    - UR5
+    - Spot
+    - Go1
+    - Go2
+    - H1
+    - Allegro
+    - Shadow Hand
+    - KUKA
+  code: {score: 3}
+  primary_cs_ro: {score: 2}
