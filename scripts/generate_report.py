@@ -37,8 +37,110 @@ def truncate_abstract(abstract: str, max_chars: int = 500) -> str:
     return truncated.rstrip() + "..."
 
 
+def _evidence_score(evidence: dict, key: str) -> float:
+    value = evidence.get(key) or {}
+    if key == "keywords":
+        return sum(float(item.get("score") or 0) for item in value)
+    return float(value.get("score") or 0)
+
+
+def _format_number(value: float) -> str:
+    return f"{value:g}"
+
+
+def _ingestion_label(status: str) -> str:
+    return {
+        "complete": "已完成入库",
+        "pending": "待入库",
+        "not_applicable": "不适用",
+    }.get(status, status or "未知")
+
+
+def generate_sop_report(scored_data: dict) -> str:
+    date_str = scored_data["date"]
+    papers = scored_data.get("papers") or []
+    selected = [paper for paper in papers if paper.get("score_level") == "selected"]
+    watch = [paper for paper in papers if paper.get("score_level") == "watch"]
+
+    lines = [
+        f"# 🤖 具身智能/机器人学术日报 ({date_str})",
+        "",
+        "## 🏆 SOP 精选论文 (≥ 8 分)",
+        "",
+    ]
+    if not selected:
+        lines.extend(["_今日无达到 SOP 精选门槛的论文_", ""])
+    else:
+        for index, paper in enumerate(selected, 1):
+            evidence = paper.get("score_evidence") or {}
+            venue = evidence.get("venue") or {}
+            institution = evidence.get("institution") or {}
+            keyword_items = evidence.get("keywords") or []
+            keyword_terms = ", ".join(item.get("term", "") for item in keyword_items)
+            lines.extend(
+                [
+                    f"### {index}. {paper['title']}",
+                    f"- **SOP Score:** {_format_number(float(paper['score']))}",
+                    "- **SOP 评分证据:** "
+                    f"Venue +{_format_number(_evidence_score(evidence, 'venue'))}"
+                    f" | Institution +{_format_number(_evidence_score(evidence, 'institution'))}"
+                    f" | Keywords +{_format_number(_evidence_score(evidence, 'keywords'))}"
+                    f" | Hardware +{_format_number(_evidence_score(evidence, 'hardware'))}"
+                    f" | Code +{_format_number(_evidence_score(evidence, 'code'))}"
+                    f" | cs.RO +{_format_number(_evidence_score(evidence, 'primary_cs_ro'))}",
+                ]
+            )
+            if venue.get("term"):
+                lines.append(f"- **Venue:** {venue['term']}")
+            if institution.get("name"):
+                lines.append(f"- **Institution:** {institution['name']}")
+            if keyword_terms:
+                lines.append(f"- **Keywords:** {keyword_terms}")
+            lines.append(
+                f"- **Zotero:** {_ingestion_label(str(paper.get('ingestion_status') or ''))}"
+            )
+            lines.append(f"- **Abstract:** {truncate_abstract(paper.get('abstract', ''))}")
+            lines.append(
+                f"- 📄 [arXiv]({paper.get('abs_url', '')}) "
+                f"| 📥 [PDF]({paper.get('pdf_url', '')})"
+            )
+            lines.extend(["", "---", ""])
+
+    lines.extend(["## 👀 SOP 关注论文 (5–7.99 分)", ""])
+    if not watch:
+        lines.extend(["_今日无关注级论文_", ""])
+    else:
+        for paper in watch:
+            lines.append(
+                f"- **{paper['title']}** (SOP: {_format_number(float(paper['score']))}) "
+                f"[Link]({paper.get('abs_url', '')})"
+            )
+        lines.append("")
+
+    lines.extend(
+        [
+            "## 📊 今日统计",
+            f"- 评分机制: `{scored_data.get('scoring_mechanism', 'paper-evaluation-sop-v1')}`",
+            f"- 总抓取: {scored_data.get('total_fetched', len(papers))} 篇 "
+            f"| 精选: {scored_data.get('selected_count', len(selected))} 篇 "
+            f"| 关注: {scored_data.get('watch_count', len(watch))} 篇 "
+            f"| 过滤: {scored_data.get('filtered_count', 0)} 篇",
+            "",
+        ]
+    )
+    incomplete = int(scored_data.get("metadata_incomplete_count", 0) or 0)
+    if incomplete:
+        lines.insert(-1, f"- 元数据不完整: {incomplete} 篇（不参与自动精选）")
+    return "\n".join(lines)
+
+
 def generate_report(scored_data: dict, config: dict) -> str:
     """Generate Markdown report from scored paper data."""
+    if scored_data.get("scoring_mechanism") or any(
+        paper.get("score_level") for paper in scored_data.get("papers") or []
+    ):
+        return generate_sop_report(scored_data)
+
     report_cfg = config["report"]
     top_n = report_cfg["top_n"]
     watch_threshold = report_cfg["watch_threshold"]

@@ -48,8 +48,9 @@ fi
 echo "========================================" >&2
 echo " Daily Paper Pipeline" >&2
 echo " Date: $TARGET_DATE (last $DAYS days)" >&2
+echo " Scoring: Paper Evaluation SOP (deterministic)" >&2
 if [ -n "$NO_LLM" ]; then
-    echo " LLM Scoring: DISABLED" >&2
+    echo " Note: --no-llm is retained for compatibility; SOP scoring does not use LLM." >&2
 fi
 echo "========================================" >&2
 
@@ -79,15 +80,14 @@ fi
 
 # Step 2: Score papers
 echo "" >&2
-echo "[2/3] Scoring and filtering papers..." >&2
-python3 "$SCRIPT_DIR/score_papers.py" \
+echo "[2/3] Scoring papers with Paper Evaluation SOP..." >&2
+python3 "$SCRIPT_DIR/score_papers_sop.py" \
     "$FETCH_FILE" \
     --config "$SCRIPT_DIR/config.yaml" \
-    --output "$SCORED_FILE" \
-    $NO_LLM
+    --output "$SCORED_FILE"
 
-SCORED_COUNT=$(python3 -c "import json; d=json.load(open('$SCORED_FILE')); print(len(d['papers']))")
-echo "  -> $SCORED_COUNT papers after filtering" >&2
+SCORED_SUMMARY=$(python3 -c "import json; d=json.load(open('$SCORED_FILE')); print(f\"{d['after_filter']} relevant ({d['selected_count']} selected, {d['watch_count']} watch; {d['filtered_count']} filtered)\")")
+echo "  -> $SCORED_SUMMARY" >&2
 
 # Step 3: Generate report
 echo "" >&2

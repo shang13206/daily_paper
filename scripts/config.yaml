@@ -429,6 +429,30 @@ zotero:
 sop:
   version: paper-evaluation-sop-v1
   thresholds: {selected: 8.0, watch: 5.0}
+  domain_gate:
+    allow_primary_cs_ro: true
+    terms:
+    - robot
+    - robotic
+    - humanoid
+    - legged
+    - quadruped
+    - bipedal
+    - locomotion
+    - manipulation
+    - grasping
+    - navigation
+    - embodied
+    - vision-language-action
+    - VLA
+    - control policy
+    - motion planning
+    - parkour
+    - terrain
+    - sim-to-real
+    - IsaacGym
+    - Isaac Lab
+    - MuJoCo
   venue:
     tier1:
       score: 10

@@ -1,56 +1,87 @@
 # 🤖 具身智能/机器人学术日报 (2026-07-09)
 
-## 🏆 精选论文 (Top 5)
+## 🏆 SOP 精选论文 (≥ 8 分)
 
-### 1. RadLoc: Radar-based 3-DoF Global Localization via Fast, Robust, and Lightweight Spatial Descriptor Across Diverse Environmental Scenarios
-- **Score:** 63
-- **Categories:** cs.RO
-- **Abstract:** While global localization using spinning radar has gained attention for its robustness to adverse weather and challenging environments, many studies have focused on individual components such as place recognition or pose estimation. In this paper, we take a holistic view of radar sensor-based global localization and present RadLoc, a fast, robust, and lightweight end-to-end pipeline from place recognition to 3-DoF pose estimation.
-- **AI 点评:** 雷达全局定位可直接用于 SLAM 和多会话定位，和机器人导航、状态估计高度相关。
-- 📄 [arXiv](https://arxiv.org/abs/2607.08115v1) | 📥 [PDF](https://arxiv.org/pdf/2607.08115v1)
-
----
-
-### 2. D-CLIPSE: Distributed Consensus-based Localization with Passive Listening on Shared State Exchange
-- **Score:** 58
-- **Categories:** cs.RO
-- **Venue:** Robotics and Automation Letters
-- **Abstract:** Multi-robot localization that is accurate and consistent is imperative for downstream tasks such as planning and control. Centralized filtering approaches optimally fuse all available sensor measurements of the team. However, a centralized solution is rarely implementable due to hardware, communication, and computational constraints. Distributed approaches deploy a filter on each robot to estimate their own state and neighbours' states using inter-robot communication.
-- **AI 点评:** 多机器人分布式定位与一致性状态估计对导航和控制有直接支撑，但未涉及轮足/四足运动控制、地形适应或实机locomotion部署。
-- 📄 [arXiv](https://arxiv.org/abs/2607.07995v1) | 📥 [PDF](https://arxiv.org/pdf/2607.07995v1)
+### 1. DexVerse: A Modular Benchmark for Multi-Task, Multi-Embodiment Dexterous Manipulation
+- **SOP Score:** 19
+- **SOP 评分证据:** Venue +0 | Institution +0 | Keywords +17 | Hardware +0 | Code +0 | cs.RO +2
+- **Keywords:** dexterous manipulation, diffusion policy, manipulation, grasping, robot
+- **Zotero:** 待入库
+- **Abstract:** Building general-purpose dexterous manipulation policies requires benchmarks that go beyond isolated tasks to systematically evaluate policies across diverse interaction modes, sensory conditions, and robot embodiments. However, existing benchmarks remain limited in task and data diversity, embodiment coverage, or controllable visual variation, hindering studies of cross-task and cross-embodiment generalization. We present DexVerse, a large-scale and modular benchmark for dexterous manipulation.
+- 📄 [arXiv](https://arxiv.org/abs/2607.08751v1) | 📥 [PDF](https://arxiv.org/pdf/2607.08751v1)
 
 ---
 
-### 3. EVIS: A Physics-Grounded Event Camera Plugin for NVIDIA Isaac Sim
-- **Score:** 48
-- **Categories:** cs.CV, cs.RO
-- **Abstract:** Event cameras offer microsecond temporal resolution, low latency, and high dynamic range, making them attractive for robotics. However, labeled event-camera data for a specific robot and scene is scarce and expensive to collect, which slows the development of event-based perception and control. We present EVIS: a physics-grounded event camera plugin for NVIDIA Isaac Sim that generates high-rate, fully labeled event streams directly inside a physics simulator.
-- **AI 点评:** Isaac Sim/Isaac Lab 事件相机插件有助于机器人感知仿真和数据生成，但未直接落到 locomotion 或导航策略。
-- 📄 [arXiv](https://arxiv.org/abs/2607.08098v1) | 📥 [PDF](https://arxiv.org/pdf/2607.08098v1)
+### 2. TFP: Temporally Conditioned Memory-Fusion Policies for Visuomotor Learning
+- **SOP Score:** 18
+- **SOP 评分证据:** Venue +10 | Institution +0 | Keywords +6 | Hardware +0 | Code +0 | cs.RO +2
+- **Venue:** RSS
+- **Keywords:** manipulation, VLA
+- **Zotero:** 待入库
+- **Abstract:** Vision--Language--Action (VLA) policies such as $π_{0.5}$ and OpenVLA perform well on many manipulation tasks, but they are often reactive: the next action is predicted from the current observation, instruction, and proprioceptive state. This assumption breaks down in stage-dependent manipulation, where visually similar states may require different actions depending on latent task progress and previous interaction outcomes.
+- 📄 [arXiv](https://arxiv.org/abs/2607.08283v1) | 📥 [PDF](https://arxiv.org/pdf/2607.08283v1)
 
 ---
 
-### 4. On Exploring Input Resolution Scaling For Anytime LiDAR Object Detection
-- **Score:** 43
-- **Categories:** cs.LG, cs.RO
-- **Abstract:** Making tradeoffs between execution latency and result utility (i.e., anytime computing) for adapting to dynamic operational requirements has been shown to enhance the performance of cyber-physical systems. In this work, we focus on enabling anytime computing for deep neural networks (DNNs) that process LiDAR point clouds for 3D object detection.
-- **AI 点评:** LiDAR 感知服务自动驾驶避障导航，和机器人感知-导航闭环相关，但不涉及足式/轮足运动控制。
-- 📄 [arXiv](https://arxiv.org/abs/2607.08391v1) | 📥 [PDF](https://arxiv.org/pdf/2607.08391v1)
+### 3. ARDY: Autoregressive Diffusion with Hybrid Representation for Interactive Human Motion Generation
+- **SOP Score:** 15
+- **SOP 评分证据:** Venue +5 | Institution +0 | Keywords +10 | Hardware +0 | Code +0 | cs.RO +0
+- **Venue:** SIGGRAPH
+- **Keywords:** humanoid, locomotion
+- **Zotero:** 待入库
+- **Abstract:** Generating realistic 3D human motions in real-time within interactive applications is key for animation, simulation, and humanoid robotics. While recent offline motion generation approaches offer precise control via text and kinematic constraints, they lack the inference speed required for interactive settings.
+- 📄 [arXiv](https://arxiv.org/abs/2607.08741v1) | 📥 [PDF](https://arxiv.org/pdf/2607.08741v1)
 
 ---
 
-### 5. FSD-VLN: Fast-Slow Dual-System Modeling for Aerial Long-Horizon Vision-Language Navigation
-- **Score:** 37
-- **Categories:** cs.AI, cs.RO
-- **Abstract:** Vision-Language Navigation (VLN) enables UAV autonomous navigation in unknown environments by mapping language instructions to real-time visual inputs. Compared with GPS-dependent or pre-programmed navigation, VLN supports intuitive human-machine interaction and stronger environmental adaptability, requiring tight integration of high-level semantic reasoning and low-latency flight control.
-- **AI 点评:** 面向 UAV 长航程视觉语言导航并包含低延迟飞控输出，导航相关但偏 VLN/语义决策而非机器人运动控制。
-- 📄 [arXiv](https://arxiv.org/abs/2607.08359v1) | 📥 [PDF](https://arxiv.org/pdf/2607.08359v1)
+### 4. ContactMimic: Humanoid Object Interaction via Contact Control
+- **SOP Score:** 11
+- **SOP 评分证据:** Venue +0 | Institution +0 | Keywords +9 | Hardware +0 | Code +0 | cs.RO +2
+- **Keywords:** humanoid, manipulation, robot
+- **Zotero:** 待入库
+- **Abstract:** Keypoint tracking alone is insufficient for object interaction tasks such as sitting on a chair, wiping a board, or pushing furniture, where the robot can reach the correct pose without making meaningful physical contact with the object. We present CONTACTMIMIC, a learning framework that tracks explicit partlevel binary contact commands alongside keypoint trajectories.
+- 📄 [arXiv](https://arxiv.org/abs/2607.08742v1) | 📥 [PDF](https://arxiv.org/pdf/2607.08742v1)
 
 ---
 
-## 👀 值得关注 (Score >= 35 的其余论文)
+### 5. Harness VLA: Steering Frozen VLAs into Reliable Manipulation Primitives via Memory-Guided Agents
+- **SOP Score:** 11
+- **SOP 评分证据:** Venue +0 | Institution +0 | Keywords +9 | Hardware +0 | Code +0 | cs.RO +2
+- **Keywords:** manipulation, grasping, VLA
+- **Zotero:** 待入库
+- **Abstract:** Language-conditioned manipulation requires both precise contact-rich control and robust reasoning over language, scenes, and long horizons. End-to-end Vision-Language-Action (VLA) models provide strong local visuomotor skills, but they are trained on in-distribution task trajectories and often fail under deployment perturbations such as semantic retargeting, goal re-binding, spatial-layout shifts, and unstable local contacts.
+- 📄 [arXiv](https://arxiv.org/abs/2607.08448v1) | 📥 [PDF](https://arxiv.org/pdf/2607.08448v1)
 
-_今日无其他值得关注论文_
+---
+
+### 6. FabriVLA: A Lightweight Vision-Language-Action Model for Precise Multi-Task Manipulation
+- **SOP Score:** 8
+- **SOP 评分证据:** Venue +0 | Institution +0 | Keywords +6 | Hardware +0 | Code +0 | cs.RO +2
+- **Keywords:** manipulation, VLA
+- **Zotero:** 待入库
+- **Abstract:** We present FabriVLA, a lightweight Vision-Language-Action model for Precise Multi-Task Manipulation. FabriVLA combines an InternVL3.5 vision-language backbone with a flow-matching action head featuring gated self-attention across action tokens and shallow VLM layer fusion for enriched spatial context. The model is trained via single stage joint optimization from a pretrained VLM and randomly initialized action head.
+- 📄 [arXiv](https://arxiv.org/abs/2607.08575v1) | 📥 [PDF](https://arxiv.org/pdf/2607.08575v1)
+
+---
+
+### 7. Native Video-Action Pretraining for Generalizable Robot Control
+- **SOP Score:** 8
+- **SOP 评分证据:** Venue +0 | Institution +0 | Keywords +4 | Hardware +4 | Code +0 | cs.RO +0
+- **Keywords:** manipulation, robot
+- **Zotero:** 待入库
+- **Abstract:** The advent of video-action models offers a promising path for robot control. Nevertheless, we argue that repurposing video generative models designed for digital content creation is inherently inadequate for physical environments. To bridge this gap, we present LingBot-VA 2.0, a video-action foundation model built from the ground up for embodiment. Four core design principles showcase its evolution from LingBot-VA.
+- 📄 [arXiv](https://arxiv.org/abs/2607.08639v1) | 📥 [PDF](https://arxiv.org/pdf/2607.08639v1)
+
+---
+
+## 👀 SOP 关注论文 (5–7.99 分)
+
+- **LEEVLA: Seeing What Matters in Latent Environment Evolution for Vision-Language-Action** (SOP: 7) [Link](https://arxiv.org/abs/2607.08182v1)
+- **AnyDexRT: Calibration-Free Dexterous Hand Retargeting with Few-Shot Human Guidance** (SOP: 6) [Link](https://arxiv.org/abs/2607.08341v1)
+- **SkillPlug: Unsupervised Skill Mining for Few-Shot Adaptation in Robotic Manipulation** (SOP: 6) [Link](https://arxiv.org/abs/2607.08354v1)
+- **WCog-VLA: A Dual-Level World-Cognitive Vision-Language-Action Model for End-to-End Autonomous Driving** (SOP: 6) [Link](https://arxiv.org/abs/2607.08375v1)
+- **EVIS: A Physics-Grounded Event Camera Plugin for NVIDIA Isaac Sim** (SOP: 5) [Link](https://arxiv.org/abs/2607.08098v1)
 
 ## 📊 今日统计
-- 总抓取: 250 篇 | 通过初筛: 32 篇 | 精选: 5 篇 (含 LLM 精筛)
+- 评分机制: `paper-evaluation-sop-v1`
+- 总抓取: 250 篇 | 精选: 7 篇 | 关注: 5 篇 | 过滤: 238 篇
