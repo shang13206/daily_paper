@@ -9,6 +9,12 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(dirname "$SCRIPT_DIR")"
 DATA_DIR="$SCRIPT_DIR/data"
 
+# A weekday with zero arXiv records is usually an API/indexing propagation issue,
+# not a normal empty publication day.  Retry before declaring the run failed.
+# Environment overrides keep the behavior tunable in cron or during testing.
+ZERO_PAPER_MAX_ATTEMPTS="${ZERO_PAPER_MAX_ATTEMPTS:-4}"
+ZERO_PAPER_RETRY_DELAY_SECONDS="${ZERO_PAPER_RETRY_DELAY_SECONDS:-300}"
+
 # Parse arguments
 TARGET_DATE=""
 NO_LLM=""
@@ -60,20 +66,42 @@ FETCH_FILE="$DATA_DIR/${TARGET_DATE}_fetched.json"
 SCORED_FILE="$DATA_DIR/${TARGET_DATE}_scored.json"
 
 # Step 1: Fetch papers
+# arXiv has no weekend announcements.  On a weekday, a zero result is retried
+# because export.arxiv.org can temporarily lag the public announcement index.
 echo "" >&2
 echo "[1/3] Fetching papers from arXiv..." >&2
-python3 "$SCRIPT_DIR/fetch_papers.py" \
-    --date "$TARGET_DATE" \
-    --days "$DAYS" \
-    --config "$SCRIPT_DIR/config.yaml" \
-    --output "$FETCH_FILE"
+TARGET_DOW=$(date -d "$TARGET_DATE" +%u 2>/dev/null || date -j -f %Y-%m-%d "$TARGET_DATE" +%u)
+IS_WEEKDAY=false
+if [ "$TARGET_DOW" -le 5 ]; then
+    IS_WEEKDAY=true
+fi
 
-# Check if we got any papers
-PAPER_COUNT=$(python3 -c "import json; d=json.load(open('$FETCH_FILE')); print(d['total_papers'])")
-echo "  -> Fetched $PAPER_COUNT papers" >&2
+PAPER_COUNT=0
+for ((attempt=1; attempt<=ZERO_PAPER_MAX_ATTEMPTS; attempt++)); do
+    python3 "$SCRIPT_DIR/fetch_papers.py" \
+        --date "$TARGET_DATE" \
+        --days "$DAYS" \
+        --config "$SCRIPT_DIR/config.yaml" \
+        --output "$FETCH_FILE"
+
+    PAPER_COUNT=$(python3 -c "import json; d=json.load(open('$FETCH_FILE')); print(d['total_papers'])")
+    echo "  -> Fetched $PAPER_COUNT papers (attempt $attempt/$ZERO_PAPER_MAX_ATTEMPTS)" >&2
+
+    if [ "$PAPER_COUNT" -gt 0 ] || [ "$IS_WEEKDAY" = false ]; then
+        break
+    fi
+    if [ "$attempt" -lt "$ZERO_PAPER_MAX_ATTEMPTS" ]; then
+        echo "  Weekday zero-result: retrying in ${ZERO_PAPER_RETRY_DELAY_SECONDS}s (arXiv index may be lagging)." >&2
+        sleep "$ZERO_PAPER_RETRY_DELAY_SECONDS"
+    fi
+done
 
 if [ "$PAPER_COUNT" -eq 0 ]; then
-    echo "  No papers found for $TARGET_DATE. This may be normal (weekends/holidays)." >&2
+    if [ "$IS_WEEKDAY" = true ]; then
+        echo "ERROR: arXiv returned 0 papers for weekday $TARGET_DATE after $ZERO_PAPER_MAX_ATTEMPTS attempts." >&2
+        exit 2
+    fi
+    echo "  No papers found for weekend target $TARGET_DATE; no report generated." >&2
     echo "  Pipeline complete (no report generated)." >&2
     exit 0
 fi
